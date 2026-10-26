@@ -1,0 +1,279 @@
+/* Сброс базовых стилей */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1a1a1a; color: #e0e0e0; height: 100vh; overflow: hidden; }
+
+/* Контейнер со всем приложением */
+.app-container { display: flex; height: 100vh; }
+
+/* --- ЛЕВАЯ ПАНЕЛЬ --- */
+.sidebar { width: 300px; background-color: #252525; border-right: 1px solid #333; display: flex; flex-direction: column; padding: 15px; overflow-y: auto; }
+.sidebar-section { margin-bottom: 30px; }
+.sidebar h3 { font-size: 14px; color: #888; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; }
+
+/* --- ПРАВАЯ ПАНЕЛЬ (ЧАТ) --- */
+.chat-area { flex: 1; display: flex; flex-direction: column; background-color: #212121; }
+.chat-header { padding: 20px; border-bottom: 1px solid #333; font-weight: bold; font-size: 18px; background-color: #2a2a2a; }
+.messages-list { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
+.empty-msg { text-align: center; color: #666; margin-top: 50px; }
+
+/* Сообщения */
+.message { display: flex; max-width: 80%; }
+.message.user { align-self: flex-end; justify-content: flex-end; }
+.message.assistant { align-self: flex-start; }
+.msg-content { padding: 12px 18px; border-radius: 12px; line-height: 1.5; white-space: pre-wrap; }
+.message.user .msg-content { background-color: #10a37f; color: white; border-bottom-right-radius: 2px; }
+.message.assistant .msg-content { background-color: #333; color: #e0e0e0; border-bottom-left-radius: 2px; }
+
+/* Поле ввода */
+.input-area { padding: 20px; border-top: 1px solid #333; display: flex; gap: 10px; background-color: #2a2a2a; }
+.input-area input { flex: 1; padding: 12px 15px; border-radius: 8px; border: 1px solid #444; background-color: #333; color: white; outline: none; font-size: 15px; }
+.input-area input:focus { border-color: #10a37f; }
+.input-area button { padding: 12px 20px; border: none; border-radius: 8px; background-color: #10a37f; color: white; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+.input-area button:hover { background-color: #0d8c6d; }
+.input-area button:disabled { background-color: #555; cursor: not-allowed; }
+
+/* Кнопка "+" рядом с заголовком */
+.sidebar-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.sidebar-header-row h3 { margin-bottom: 0; }
+.add-btn { background: #10a37f; color: white; border: none; border-radius: 4px; width: 24px; height: 24px; cursor: pointer; font-weight: bold; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
+.add-btn:hover { background: #0d8c6d; }
+
+/* --- МОДАЛЬНОЕ ОКНО (Затемнение фона) --- */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+/* Сама карточка формы */
+.modal-content {
+  background-color: #2a2a2a;
+  padding: 25px 30px;
+  border-radius: 12px;
+  width: 500px;
+  max-width: 90%;
+  border: 1px solid #444;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-content h2 { margin-bottom: 20px; color: #fff; }
+
+/* Стили формы */
+.char-form { display: flex; flex-direction: column; gap: 12px; }
+.char-form label { font-size: 14px; color: #aaa; margin-bottom: -5px; }
+.char-form input, .char-form textarea {
+  width: 100%;
+  padding: 10px;
+  background-color: #1a1a1a;
+  border: 1px solid #444;
+  border-radius: 6px;
+  color: white;
+  font-family: inherit;
+  font-size: 14px;
+}
+.char-form textarea { resize: vertical; min-height: 60px; }
+.char-form input:focus, .char-form textarea:focus { outline: none; border-color: #10a37f; }
+
+/* Кнопки внизу формы */
+.modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+.modal-actions button { padding: 10px 20px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; transition: 0.2s; }
+.cancel-btn { background-color: #444; color: white; }
+.cancel-btn:hover { background-color: #555; }
+.submit-btn { background-color: #10a37f; color: white; }
+.submit-btn:hover { background-color: #0d8c6d; }
+
+/* Новая строка с персонажем/чатом */
+.item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 15px;
+  margin-bottom: 5px;
+  background-color: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+  font-size: 15px;
+}
+
+.item-row:hover { background-color: #333; }
+.item-row.active { background-color: #444; font-weight: bold; border-left: 3px solid #10a37f; }
+
+.item-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis; /* Если имя длинное, оно обрежется троеточием */
+}
+
+/* Кнопка-крестик */
+.delete-icon-btn {
+  background: transparent;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 5px;
+  opacity: 0; /* По умолчанию крестик невидим */
+  transition: all 0.2s;
+}
+
+/* Показываем крестик только при наведении на строку или если она активна */
+.item-row:hover .delete-icon-btn,
+.item-row.active .delete-icon-btn {
+  opacity: 1; 
+}
+
+.delete-icon-btn:hover { color: #ff4d4d; }
+
+/* --- КАРТОЧКА ПЕРСОНАЖА --- */
+.character-profile {
+  padding: 40px;
+  max-width: 800px;
+  margin: 0 auto;
+  width: 100%;
+  overflow-y: auto;
+  color: #e0e0e0;
+}
+
+.character-profile h1 {
+  font-size: 36px;
+  margin-bottom: 30px;
+  color: #fff;
+  border-bottom: 2px solid #10a37f;
+  padding-bottom: 10px;
+  display: inline-block;
+}
+
+.profile-field {
+  margin-bottom: 25px;
+  background-color: #2a2a2a;
+  padding: 20px;
+  border-radius: 10px;
+  border: 1px solid #333;
+}
+
+.profile-field label {
+  display: block;
+  font-size: 13px;
+  color: #10a37f; /* Зеленый акцент */
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+  font-weight: bold;
+}
+
+.profile-field p {
+  font-size: 16px;
+  line-height: 1.6;
+  color: #d1d1d1;
+}
+
+.first-msg-preview {
+  font-style: italic;
+  color: #aaa !important;
+  border-left: 3px solid #555;
+  padding-left: 15px;
+}
+
+.start-chat-btn {
+  display: block;
+  width: 100%;
+  max-width: 300px;
+  margin: 40px auto 0 auto;
+  padding: 15px 30px;
+  background-color: #10a37f;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 15px rgba(16, 163, 127, 0.3);
+}
+
+.start-chat-btn:hover {
+  background-color: #0d8c6d;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(16, 163, 127, 0.5);
+}
+
+/* --- РЕДАКТИРОВАНИЕ ПЕРСОНАЖА --- */
+.profile-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid #10a37f;
+  padding-bottom: 10px;
+  margin-bottom: 30px;
+}
+
+.profile-header-row h1 {
+  margin-bottom: 0;
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.edit-btn {
+  background-color: transparent;
+  border: 1px solid #10a37f;
+  color: #10a37f;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.2s;
+}
+
+.edit-btn:hover {
+  background-color: #10a37f;
+  color: white;
+}
+
+/* Форма редактирования (очень похожа на форму создания) */
+.profile-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  max-width: 600px;
+}
+
+.profile-edit-form h2 {
+  color: #fff;
+  margin-bottom: 10px;
+}
+
+.profile-edit-form label {
+  font-size: 14px;
+  color: #aaa;
+  margin-bottom: -10px;
+}
+
+.profile-edit-form input, 
+.profile-edit-form textarea {
+  width: 100%;
+  padding: 12px;
+  background-color: #1a1a1a;
+  border: 1px solid #444;
+  border-radius: 8px;
+  color: white;
+  font-family: inherit;
+  font-size: 15px;
+}
+
+.profile-edit-form textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.profile-edit-form input:focus, 
+.profile-edit-form textarea:focus {
+  outline: none;
+  border-color: #10a37f;
+}
