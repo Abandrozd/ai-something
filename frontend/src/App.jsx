@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkBreaks from 'remark-breaks';
 import './App.css';
 
 const API_URL = "http://127.0.0.1:8000";
@@ -25,6 +27,7 @@ function App() {
   });
 
   const messagesEndRef = useRef(null);
+    const inputRef = useRef(null);
 
   useEffect(() => {
     fetchCharacters();
@@ -96,6 +99,9 @@ function App() {
 
   const handleEditChange = (e) => {
     setEditFormData({ ...editFormData, [e.target.name]: e.target.value });
+    
+    e.target.style.height = 'auto';
+    e.target.style.height = `${e.target.scrollHeight}px`;
   };
 
   const handleUpdateCharacter = async (e) => {
@@ -166,7 +172,11 @@ function App() {
 
   const handleInputChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    
+    e.target.style.height = 'auto'; 
+    e.target.style.height = `${e.target.scrollHeight}px`;
   };
+
 
   // --- СТРИМИНГ ---
   const sendMessage = async () => {
@@ -174,7 +184,12 @@ function App() {
 
     const userMessage = { role: "user", content: input };
     setMessages((prev) => [...prev, userMessage, { role: "assistant", content: "" }]);
+    
     setInput("");
+    if (inputRef.current) {
+      inputRef.current.style.height = 'auto';
+    }
+    
     setIsLoading(true);
 
     try {
@@ -261,19 +276,69 @@ function App() {
                 <h2>Редактирование: {viewingChar.name}</h2>
                 
                 <label>Имя</label>
-                <input name="name" value={editFormData.name || ""} onChange={handleEditChange} required />
+                <textarea 
+                  name="name" 
+                  value={editFormData.name || ""} 
+                  onChange={handleEditChange} 
+                  ref={(el) => {
+                    if (el) {
+                      el.style.height = 'auto';
+                      el.style.height = `${el.scrollHeight}px`;
+                    }
+                  }}
+                />
 
                 <label>Описание</label>
-                <textarea name="description" value={editFormData.description || ""} onChange={handleEditChange} />
+                <textarea 
+                  name="description" 
+                  value={editFormData.description || ""} 
+                  onChange={handleEditChange} 
+                  ref={(el) => {
+                    if (el) {
+                      el.style.height = 'auto';
+                      el.style.height = `${el.scrollHeight}px`;
+                    }
+                  }}
+                />
 
                 <label>Характер</label>
-                <textarea name="personality" value={editFormData.personality || ""} onChange={handleEditChange} />
+                <textarea 
+                  name="personality" 
+                  value={editFormData.personality || ""} 
+                  onChange={handleEditChange} 
+                  ref={(el) => {
+                    if (el) {
+                      el.style.height = 'auto';
+                      el.style.height = `${el.scrollHeight}px`;
+                    }
+                  }}
+                />
 
                 <label>Сценарий</label>
-                <textarea name="scenario" value={editFormData.scenario || ""} onChange={handleEditChange} />
+                <textarea 
+                  name="scenario" 
+                  value={editFormData.scenario || ""} 
+                  onChange={handleEditChange} 
+                  ref={(el) => {
+                    if (el) {
+                      el.style.height = 'auto';
+                      el.style.height = `${el.scrollHeight}px`;
+                    }
+                  }}
+                />
 
                 <label>Первое сообщение</label>
-                <textarea name="first_message" value={editFormData.first_message || ""} onChange={handleEditChange} />
+                <textarea 
+                  name="first_message" 
+                  value={editFormData.first_message || ""} 
+                  onChange={handleEditChange} 
+                  ref={(el) => {
+                    if (el) {
+                      el.style.height = 'auto';
+                      el.style.height = `${el.scrollHeight}px`;
+                    }
+                  }}
+                />
 
                 <div className="modal-actions">
                   <button type="button" onClick={() => setIsEditingProfile(false)} className="cancel-btn">Отмена</button>
@@ -305,7 +370,15 @@ function App() {
 
                 <div className="profile-field">
                   <label>💬 Первое сообщение</label>
-                  <p className="first-msg-preview">"{viewingChar.first_message || "Нет"}"</p>
+                  <div className="first-msg-preview">
+                    {viewingChar.first_message ? (
+                      <ReactMarkdown remarkPlugins={[remarkBreaks]}>
+                        {viewingChar.first_message}
+                      </ReactMarkdown>
+                    ) : (
+                      "Нет"
+                    )}
+                  </div>
                 </div>
 
                 <button className="start-chat-btn" onClick={startChatWithChar}>
@@ -325,22 +398,41 @@ function App() {
 
             <div className="messages-list">
               {messages.length === 0 && <p className="empty-msg">Напишите первое сообщение...</p>}
+
               {messages.map((msg, idx) => (
                 <div key={idx} className={`message ${msg.role}`}>
-                  <div className="msg-content">{msg.content}</div>
+                  <div className="msg-content">
+                  <ReactMarkdown remarkPlugins={[remarkBreaks]}>
+                    {msg.content}
+                  </ReactMarkdown>
+                  </div>
                 </div>
               ))}
               {isLoading && <div className="message assistant"><div className="msg-content">Печатает...</div></div>}
               <div ref={messagesEndRef} />
             </div>
 
-            <div className="input-area">
-              <input 
-                type="text" value={input} 
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-                placeholder="Введите сообщение..."
+                        <div className="input-area">
+              <textarea 
+                ref={inputRef}
+                value={input} 
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  // Авто-ресайз прямо при вводе
+                  e.target.style.height = 'auto';
+                  e.target.style.height = `${Math.min(e.target.scrollHeight, 150)}px`;
+                }}
+                onKeyDown={(e) => {
+                  // Если нажат Enter БЕЗ Shift — отправляем
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault(); // Запрещаем стандартный перенос строки
+                    sendMessage();
+                  }
+                  // Если Shift+Enter — ничего не делаем, сработает стандартный перенос
+                }}
+                placeholder="Введите сообщение... (Shift+Enter для новой строки)"
                 disabled={!selectedCharId && !conversationId}
+                rows={1}
               />
               <button onClick={sendMessage} disabled={isLoading || (!selectedCharId && !conversationId)}>Отправить</button>
             </div>

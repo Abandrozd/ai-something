@@ -154,7 +154,8 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
             response = await client.chat.completions.create(
                 model=MODEL,
                 messages=api_messages,
-                stream=True 
+                stream=True,
+                temperature=0.7
             )
             
             async for chunk in response:

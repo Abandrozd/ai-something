@@ -20,17 +20,62 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-
 .message { display: flex; max-width: 80%; }
 .message.user { align-self: flex-end; justify-content: flex-end; }
 .message.assistant { align-self: flex-start; }
-.msg-content { padding: 12px 18px; border-radius: 12px; line-height: 1.5; white-space: pre-wrap; }
+.msg-content { padding: 12px 18px; border-radius: 12px; line-height: 1.5; text-align: left important; }
 .message.user .msg-content { background-color: #10a37f; color: white; border-bottom-right-radius: 2px; }
 .message.assistant .msg-content { background-color: #333; color: #e0e0e0; border-bottom-left-radius: 2px; }
 
 /* Поле ввода */
-.input-area { padding: 20px; border-top: 1px solid #333; display: flex; gap: 10px; background-color: #2a2a2a; }
-.input-area input { flex: 1; padding: 12px 15px; border-radius: 8px; border: 1px solid #444; background-color: #333; color: white; outline: none; font-size: 15px; }
-.input-area input:focus { border-color: #10a37f; }
-.input-area button { padding: 12px 20px; border: none; border-radius: 8px; background-color: #10a37f; color: white; font-weight: bold; cursor: pointer; transition: background 0.2s; }
-.input-area button:hover { background-color: #0d8c6d; }
-.input-area button:disabled { background-color: #555; cursor: not-allowed; }
+.input-area { 
+  padding: 20px; 
+  border-top: 1px solid #333; 
+  display: flex; 
+  gap: 10px; 
+  background-color: #2a2a2a; 
+  align-items: flex-end; /* Прижимаем кнопку к низу, если поле растянулось */
+}
+
+/* Меняем input на textarea */
+.input-area textarea { 
+  flex: 1; 
+  padding: 12px 15px; 
+  border-radius: 8px; 
+  border: 1px solid #444; 
+  background-color: #333; 
+  color: white; 
+  outline: none; 
+  font-size: 15px; 
+  font-family: inherit; /* Чтобы шрифт был как у всего сайта */
+  resize: none; /* Запрещаем растягивать мышкой */
+  min-height: 46px; /* Высота одной строки */
+  max-height: 150px; /* Максимум, после которого появится скролл */
+  overflow-y: auto; /* Включаем скролл, если текст длиннее 150px */
+  line-height: 1.4;
+}
+
+.input-area textarea:focus { 
+  border-color: #10a37f; 
+}
+
+.input-area button { 
+  padding: 12px 20px; 
+  border: none; 
+  border-radius: 8px; 
+  background-color: #10a37f; 
+  color: white; 
+  font-weight: bold; 
+  cursor: pointer; 
+  transition: background 0.2s; 
+  height: 46px; /* Фиксируем высоту кнопки, чтобы она не растягивалась */
+}
+
+.input-area button:hover { 
+  background-color: #0d8c6d; 
+}
+
+.input-area button:disabled { 
+  background-color: #555; 
+  cursor: not-allowed; 
+}
 
 /* Кнопка "+" рядом с заголовком */
 .sidebar-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
@@ -76,7 +121,13 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-
   font-family: inherit;
   font-size: 14px;
 }
-.char-form textarea { resize: vertical; min-height: 60px; }
+.char-form textarea {
+  resize: none;
+  min-height: 60px;
+  max-height: 300px;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
 .char-form input:focus, .char-form textarea:focus { outline: none; border-color: #10a37f; }
 
 /* Кнопки внизу формы */
@@ -139,6 +190,7 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-
   width: 100%;
   overflow-y: auto;
   color: #e0e0e0;
+  text-align: left !important;
 }
 
 .character-profile h1 {
@@ -161,7 +213,7 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-
 .profile-field label {
   display: block;
   font-size: 13px;
-  color: #10a37f; /* Зеленый акцент */
+  color: #10a37f;
   text-transform: uppercase;
   letter-spacing: 1px;
   margin-bottom: 10px;
@@ -265,15 +317,53 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-
   color: white;
   font-family: inherit;
   font-size: 15px;
-}
-
-.profile-edit-form textarea {
-  resize: vertical;
-  min-height: 80px;
+  resize: none;
+  min-height: 40px;
+  max-height: 350px;
+  overflow-y: auto;
+  box-sizing: border-box;
+  
 }
 
 .profile-edit-form input:focus, 
 .profile-edit-form textarea:focus {
   outline: none;
   border-color: #10a37f;
+}
+
+/* --- ЕДИНЫЕ ПРАВИЛА ДЛЯ ВСЕХ ТЕКСТОВЫХ БЛОКОВ --- */
+.msg-content p,
+.first-msg-preview p,
+.profile-field p {
+  margin: 0;
+}
+
+.msg-content p, 
+.msg-content em, 
+.msg-content strong,
+.msg-content blockquote {
+  text-align: left !important;
+}
+
+.msg-content p + p,
+.first-msg-preview p + p,
+.profile-field p + p {
+  margin-top: 10px;
+}
+
+/* Для текста в режиме просмотра */
+.profile-field, 
+.profile-field label, 
+.profile-field p,
+.first-msg-preview,
+.first-msg-preview p {
+  text-align: left !important;
+}
+
+/* Для полей ввода в режиме редактирования */
+.profile-edit-form,
+.profile-edit-form input,
+.profile-edit-form textarea,
+.profile-edit-form label {
+  text-align: left !important;
 }
