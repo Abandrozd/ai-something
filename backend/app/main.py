@@ -3,7 +3,7 @@ from app.models import User, Character, Conversation, Message  # noqa: F401
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import characters, chat
+from app.routers import characters, chat, conversations
 from app.database import init_db
 
 
@@ -30,7 +30,7 @@ app.add_middleware(
 )
 app.include_router(characters.router)
 app.include_router(chat.router)
-
+app.include_router(conversations.router)
 @app.get("/")
 async def root():
     return {"message": "AI Chat API is running"}

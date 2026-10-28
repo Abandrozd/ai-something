@@ -38,10 +38,16 @@ async def chat(
         conversation = await db.get(Conversation, data.conversation_id)
 
     if not conversation:
+        title = "New chat"
+        if data.character_id:
+            character = await db.get(Character, data.character_id)
+            if character:
+                title = character.name
+
         conversation = Conversation(
             user_id=user.id,
             character_id=data.character_id,
-            title="New chat",
+            title=title,
         )
         db.add(conversation)
         await db.commit()
