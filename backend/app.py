@@ -1,13 +1,12 @@
 import os
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from openai import AsyncOpenAI
 from dotenv import load_dotenv
 
-from database import init_db, SessionLocal
+from backend.app.database import init_db, SessionLocal
 from models import User, Conversation, Message, Character 
 
 from fastapi.middleware.cors import CORSMiddleware
