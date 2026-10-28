@@ -10,6 +10,7 @@ from app.models.message import Message
 from app.models.character import Character
 from app.schemas.chat import ChatRequest
 from app.config import get_settings
+from app.security import get_current_user
 
 from openai import AsyncOpenAI
 
@@ -22,20 +23,14 @@ client = AsyncOpenAI(api_key=settings.API_KEY)
 async def chat(
     data: ChatRequest,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    # Получаем или создаём пользователя
-    result = await db.execute(select(User).where(User.username == "web_user"))
-    user = result.scalar_one_or_none()
-    if not user:
-        user = User(username="web_user")
-        db.add(user)
-        await db.commit()
-        await db.refresh(user)
-
     # Получаем или создаём диалог
     conversation = None
     if data.conversation_id:
         conversation = await db.get(Conversation, data.conversation_id)
+        if conversation and conversation.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Нет доступа к этому диалогу")
 
     if not conversation:
         title = "New chat"
@@ -45,7 +40,7 @@ async def chat(
                 title = character.name
 
         conversation = Conversation(
-            user_id=user.id,
+            user_id=current_user.id,
             character_id=data.character_id,
             title=title,
         )
