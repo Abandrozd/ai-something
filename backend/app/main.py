@@ -1,11 +1,25 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import init_db
 
-app = FastAPI(title="AI Chat API", version="0.1.0")
 
-# Разрешаем запросы с фронтенда
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Запускается при старте приложения
+    await init_db()
+    yield
+    # Здесь можно закрывать соединения при остановке (пока не нужно)
+
+
+app = FastAPI(
+    title="AI Chat API",
+    version="0.1.0",
+    lifespan=lifespan,
+)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -15,11 +29,6 @@ app.add_middleware(
 )
 
 
-@app.on_event("startup")
-def on_startup():
-    init_db()
-
-
 @app.get("/")
-def root():
+async def root():
     return {"message": "AI Chat API is running"}
