@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from app.models import User, Character, Conversation, Message  # noqa: F401
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
