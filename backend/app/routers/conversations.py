@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from app.dependecies import get_db
+from app.dependencies import get_db
 from app.models.conversation import Conversation
 from app.models.message import Message
 from app.schemas.conversation import ConversationResponse

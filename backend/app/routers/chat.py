@@ -3,7 +3,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from app.dependecies import get_db
+from app.dependencies import get_db
 from app.models.user import User
 from app.models.conversation import Conversation
 from app.models.message import Message
