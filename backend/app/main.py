@@ -3,7 +3,7 @@ from app.models import User, Character, Conversation, Message  # noqa: F401
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import characters
+from app.routers import characters, chat
 from app.database import init_db
 
 
@@ -29,7 +29,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(characters.router)
-
+app.include_router(chat.router)
 
 @app.get("/")
 async def root():
