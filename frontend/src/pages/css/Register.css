@@ -1,0 +1,87 @@
+.register-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+}
+
+.register-card {
+  background: #0f0f1a;
+  padding: 40px 32px;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+  border: 1px solid #2a2a40;
+}
+
+.register-title {
+  margin: 0 0 8px;
+  font-size: 28px;
+  color: #fff;
+  text-align: center;
+}
+
+.register-subtitle {
+  margin: 0 0 24px;
+  color: #aaa;
+  text-align: center;
+  font-size: 14px;
+}
+
+.register-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.register-input {
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid #333;
+  background: #1a1a2e;
+  color: #fff;
+  font-size: 15px;
+  outline: none;
+}
+
+.register-input:focus {
+  border-color: #6c5ce7;
+}
+
+.register-button {
+  margin-top: 8px;
+  padding: 12px;
+  border-radius: 8px;
+  border: none;
+  background: #6c5ce7;
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.register-button:hover {
+  background: #5b4cdb;
+}
+
+.register-error {
+  color: #ff6b6b;
+  text-align: center;
+  margin-top: 12px;
+  font-size: 14px;
+}
+
+.register-footer {
+  margin-top: 20px;
+  text-align: center;
+  color: #aaa;
+  font-size: 14px;
+}
+
+.register-footer a {
+  color: #6c5ce7;
+  text-decoration: none;
+  font-weight: 600;
+}

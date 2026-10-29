@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-
+from app.models.user import User
 from app.dependencies import get_db
 from app.models.character import Character
 from app.schemas.character import CharacterCreate, CharacterUpdate, CharacterResponse
+from app.security import get_current_user
 
 router = APIRouter(prefix="/characters", tags=["characters"])
 
@@ -19,7 +20,11 @@ async def get_characters(db: AsyncSession = Depends(get_db)):
 async def create_character(
     data: CharacterCreate,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
+    if current_user.role.value != "admin":
+        raise HTTPException(status_code=403, detail="Только администратор может создавать персонажей")
+
     character = Character(**data.model_dump())
     db.add(character)
     await db.commit()
@@ -40,7 +45,11 @@ async def update_character(
     character_id: int,
     data: CharacterUpdate,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
+    if current_user.role.value != "admin":
+        raise HTTPException(status_code=403, detail="Только администратор может редактировать персонажей")
+
     character = await db.get(Character, character_id)
     if not character:
         raise HTTPException(status_code=404, detail="Персонаж не найден")
@@ -55,7 +64,14 @@ async def update_character(
 
 
 @router.delete("/{character_id}")
-async def delete_character(character_id: int, db: AsyncSession = Depends(get_db)):
+async def delete_character(
+    character_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.role.value != "admin":
+        raise HTTPException(status_code=403, detail="Только администратор может удалять персонажей")
+
     character = await db.get(Character, character_id)
     if not character:
         raise HTTPException(status_code=404, detail="Персонаж не найден")
