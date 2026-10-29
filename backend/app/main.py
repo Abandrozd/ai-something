@@ -44,7 +44,6 @@ async def root():
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
-    # Пропускаем CORS preflight и редиректы
     if request.method == "OPTIONS":
         return await call_next(request)
 
@@ -52,15 +51,13 @@ async def log_requests(request: Request, call_next):
     response = await call_next(request)
     duration = round(time.time() - start, 3)
 
-    # Не логируем редиректы
-    if response.status_code in (307, 308):
-        return response
-
-    logger.info(
-        "%s %s → %s (%ss)",
-        request.method,
-        request.url.path,
-        response.status_code,
-        duration,
-    )
+    # Логируем только ошибки и медленные запросы
+    if response.status_code >= 400 or duration > 1.0:
+        logger.warning(
+            "%s %s → %s (%ss)",
+            request.method,
+            request.url.path,
+            response.status_code,
+            duration,
+        )
     return response
