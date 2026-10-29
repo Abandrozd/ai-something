@@ -7,6 +7,7 @@ import Login from './pages/Login.jsx'
 import Register from './pages/Register.jsx'
 import Profile from './pages/Profile.jsx'
 import { getToken } from './api.js'
+import Admin from './pages/Admin.jsx'
 
 function PrivateRoute({ children }) {
   const token = getToken()
@@ -35,6 +36,14 @@ createRoot(document.getElementById('root')).render(
             </PrivateRoute>
           }
         />
+          <Route
+              path="/admin"
+              element={
+                <PrivateRoute>
+                  <Admin />
+                </PrivateRoute>
+              }
+            />
       </Routes>
     </BrowserRouter>
   </StrictMode>,

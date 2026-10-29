@@ -1,0 +1,110 @@
+.admin-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  padding: 40px 20px;
+  display: flex;
+  justify-content: center;
+}
+
+.admin-card {
+  background: #0f0f1a;
+  border: 1px solid #2a2a40;
+  border-radius: 16px;
+  padding: 32px;
+  width: 100%;
+  max-width: 900px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+}
+
+.admin-card h2 {
+  margin: 0 0 8px;
+  text-align: center;
+  color: #fff;
+}
+
+.admin-section h3 {
+  margin: 24px 0 12px;
+  color: #ccc;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 12px 10px;
+  text-align: left;
+  border-bottom: 1px solid #2a2a40;
+  color: #eee;
+}
+
+.admin-table th {
+  color: #888;
+  font-weight: 500;
+  font-size: 13px;
+  text-transform: uppercase;
+}
+
+.role {
+  text-transform: capitalize;
+  color: #6c5ce7;
+}
+
+.role-btn {
+  background: #6c5ce7;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.role-btn:hover {
+  background: #5b4cdb;
+}
+
+.role-editor {
+  margin-top: 20px;
+  padding: 16px;
+  background: #1a1a2e;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.role-editor select,
+.role-editor button {
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #333;
+  background: #252525;
+  color: white;
+}
+
+.role-editor button {
+  background: #00b894;
+  border: none;
+  cursor: pointer;
+}
+
+.role-editor .cancel {
+  background: #444;
+}
+
+.admin-message {
+  text-align: center;
+  color: #ff6b6b;
+  margin: 10px 0;
+}
+
+.back-link {
+  display: inline-block;
+  margin-top: 24px;
+  color: #6c5ce7;
+  text-decoration: none;
+}

@@ -8,6 +8,7 @@ function App() {
   const [characters, setCharacters] = useState([]);
   const [conversations, setConversations] = useState([]);
   const [messages, setMessages] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
 
   const [selectedCharId, setSelectedCharId] = useState(null);
   const [conversationId, setConversationId] = useState(null);
@@ -30,6 +31,7 @@ function App() {
   useEffect(() => {
     fetchCharacters();
     fetchConversations();
+    fetchCurrentUser();
   }, []);
 
   useEffect(() => {
@@ -37,6 +39,18 @@ function App() {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
+
+  const fetchCurrentUser = async () => {
+    try {
+      const res = await apiFetch("/users/me");
+      if (res.ok) {
+        const data = await res.json();
+        setCurrentUser(data);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const fetchCharacters = async () => {
     try {
@@ -229,9 +243,10 @@ function App() {
     }
   };
 
+  const isAdmin = currentUser?.role === "admin";
+
   return (
     <div className="app">
-      {/* Sidebar */}
       <div className="sidebar">
         <div style={{ padding: "10px 16px" }}>
           <a href="/profile" className="profile-link">Профиль</a>
@@ -239,7 +254,11 @@ function App() {
 
         <div className="sidebar-section">
           <h3>Персонажи</h3>
-          <button className="new-char-btn" onClick={() => setIsModalOpen(true)}>+ Создать</button>
+          {isAdmin && (
+            <button className="new-char-btn" onClick={() => setIsModalOpen(true)}>
+              + Создать
+            </button>
+          )}
           {characters.map((char) => (
             <div
               key={char.id}
@@ -247,7 +266,9 @@ function App() {
               onClick={() => handleCharClick(char)}
             >
               <span>{char.name}</span>
-              <button className="delete-btn" onClick={(e) => deleteChar(e, char.id)}>×</button>
+              {isAdmin && (
+                <button className="delete-btn" onClick={(e) => deleteChar(e, char.id)}>×</button>
+              )}
             </div>
           ))}
         </div>
@@ -267,7 +288,6 @@ function App() {
         </div>
       </div>
 
-      {/* Main area */}
       <div className="main">
         {viewingChar && !isEditingProfile && (
           <div className="char-profile">
@@ -276,7 +296,9 @@ function App() {
             <p><b>Характер:</b> {viewingChar.personality}</p>
             <p><b>Сценарий:</b> {viewingChar.scenario}</p>
             <button onClick={startChatWithChar}>Начать чат</button>
-            <button onClick={startEditingProfile}>Редактировать</button>
+            {isAdmin && (
+              <button onClick={startEditingProfile}>Редактировать</button>
+            )}
           </div>
         )}
 
@@ -325,7 +347,6 @@ function App() {
         )}
       </div>
 
-      {/* Modal создания персонажа */}
       {isModalOpen && (
         <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>

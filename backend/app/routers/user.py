@@ -6,9 +6,14 @@ from app.dependencies import get_db
 from app.models.user import User
 from app.schemas.user import UserCreate, UserResponse
 from app.security import hash_password, get_current_user
-
+from pydantic import BaseModel
+from app.models.user import UserRole
 router = APIRouter(prefix="/users", tags=["users"])
 
+
+class RoleUpdate(BaseModel):
+    username: str
+    role: UserRole
 
 @router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def create_user(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
@@ -39,3 +44,37 @@ async def create_user(user_data: UserCreate, db: AsyncSession = Depends(get_db))
 async def get_me(current_user: User = Depends(get_current_user)):
     """Возвращает данные текущего пользователя."""
     return current_user
+
+@router.patch("/role")
+async def update_user_role(
+    data: RoleUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Только администратор может менять роли")
+
+    result = await db.execute(select(User).where(User.username == data.username))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+
+    user.role = data.role
+    await db.commit()
+    await db.refresh(user)
+
+    return {
+        "username": user.username,
+        "role": user.role.value,
+    }
+
+@router.get("/", response_model=list[UserResponse])
+async def get_users(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Только для администраторов")
+
+    result = await db.execute(select(User).order_by(User.id))
+    return result.scalars().all()

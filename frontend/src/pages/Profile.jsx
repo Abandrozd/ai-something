@@ -65,7 +65,11 @@ export default function Profile() {
         <button className="profile-logout" onClick={handleLogout}>
           Выйти
         </button>
-
+      {user.role === "admin" && (
+        <a href="/admin" className="profile-back" style={{ display: "block", marginTop: "10px" }}>
+          Админ-панель
+        </a>
+      )}
         <a href="/" className="profile-back">
           Вернуться в чат
         </a>
