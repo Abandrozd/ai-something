@@ -15,6 +15,15 @@ class RoleUpdate(BaseModel):
     username: str
     role: UserRole
 
+class BalanceUpdate(BaseModel):
+    username: str
+    amount: float
+
+
+class UserStatusUpdate(BaseModel):
+    username: str
+    is_active: bool
+
 @router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def create_user(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
@@ -78,3 +87,41 @@ async def get_users(
 
     result = await db.execute(select(User).order_by(User.id))
     return result.scalars().all()
+
+@router.patch("/balance")
+async def update_balance(
+    data: BalanceUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Только для администраторов")
+
+    result = await db.execute(select(User).where(User.username == data.username))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+
+    user.balance = float(user.balance or 0) + data.amount
+    await db.commit()
+    await db.refresh(user)
+    return {"username": user.username, "balance": user.balance}
+
+
+@router.patch("/status")
+async def update_user_status(
+    data: UserStatusUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Только для администраторов")
+
+    result = await db.execute(select(User).where(User.username == data.username))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+
+    user.is_active = data.is_active
+    await db.commit()
+    return {"username": user.username, "is_active": user.is_active}

@@ -6,6 +6,8 @@ export default function Admin() {
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [newRole, setNewRole] = useState("");
+  const [balanceUser, setBalanceUser] = useState(null);
+  const [amount, setAmount] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -18,8 +20,7 @@ export default function Admin() {
     try {
       const res = await apiFetch("/users/");
       if (res.ok) {
-        const data = await res.json();
-        setUsers(data);
+        setUsers(await res.json());
       } else {
         setMessage("Нет доступа или ошибка загрузки");
       }
@@ -44,6 +45,41 @@ export default function Admin() {
     }
   };
 
+  const handleBalance = async () => {
+    if (!balanceUser || !amount) return;
+    const res = await apiFetch("/users/balance", {
+      method: "PATCH",
+      body: JSON.stringify({
+        username: balanceUser.username,
+        amount: parseFloat(amount),
+      }),
+    });
+    if (res.ok) {
+      setMessage("Баланс обновлён");
+      loadUsers();
+      setBalanceUser(null);
+      setAmount("");
+    } else {
+      setMessage("Не удалось обновить баланс");
+    }
+  };
+
+  const toggleStatus = async (user) => {
+    const res = await apiFetch("/users/status", {
+      method: "PATCH",
+      body: JSON.stringify({
+        username: user.username,
+        is_active: !user.is_active,
+      }),
+    });
+    if (res.ok) {
+      setMessage(user.is_active ? "Пользователь заблокирован" : "Пользователь разблокирован");
+      loadUsers();
+    } else {
+      setMessage("Не удалось изменить статус");
+    }
+  };
+
   return (
     <div className="admin-page">
       <div className="admin-card">
@@ -65,7 +101,8 @@ export default function Admin() {
                   <th>Email</th>
                   <th>Роль</th>
                   <th>Баланс</th>
-                  <th></th>
+                  <th>Статус</th>
+                  <th>Действия</th>
                 </tr>
               </thead>
               <tbody>
@@ -75,7 +112,8 @@ export default function Admin() {
                     <td>{u.email}</td>
                     <td className="role">{u.role}</td>
                     <td>{u.balance}</td>
-                    <td>
+                    <td>{u.is_active ? "Активен" : "Заблокирован"}</td>
+                    <td className="actions">
                       <button
                         className="role-btn"
                         onClick={() => {
@@ -84,6 +122,15 @@ export default function Admin() {
                         }}
                       >
                         Роль
+                      </button>
+                      <button className="balance-btn" onClick={() => setBalanceUser(u)}>
+                        Баланс
+                      </button>
+                      <button
+                        className={u.is_active ? "block-btn" : "unblock-btn"}
+                        onClick={() => toggleStatus(u)}
+                      >
+                        {u.is_active ? "Блок" : "Разблок"}
                       </button>
                     </td>
                   </tr>
@@ -105,6 +152,22 @@ export default function Admin() {
             </select>
             <button onClick={handleRoleChange}>Сохранить</button>
             <button className="cancel" onClick={() => setSelectedUser(null)}>
+              Отмена
+            </button>
+          </div>
+        )}
+
+        {balanceUser && (
+          <div className="role-editor">
+            <h4>Баланс: {balanceUser.username} (сейчас {balanceUser.balance})</h4>
+            <input
+              type="number"
+              placeholder="Сумма (+ или -)"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+            />
+            <button onClick={handleBalance}>Начислить</button>
+            <button className="cancel" onClick={() => setBalanceUser(null)}>
               Отмена
             </button>
           </div>
