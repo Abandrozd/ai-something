@@ -1,25 +1,96 @@
+
+```markdown
+# AI Chat
+
+Веб-приложение для общения с AI-персонажами.  
+Бэкенд на FastAPI + PostgreSQL, фронтенд на React + Vite.
+
 ## Требования
 
-Перед запуском проекта нужны:
+- Python 3.10+
+- PostgreSQL
+- Node.js (LTS)
 
-- **Python** (версия 3.10 или выше) - для бэкенда.
-- **PostgreSQL** - для базы данных.
-- **Node.js** (LTS-версия) - для фронтенда.
+## Установка и запуск
 
-## Как запустить проект
+### 1. База данных
 
-в postgres создай базу данных ai_chat
+Создайте базу в PostgreSQL:
 
-в папке `backend` добавь .env файл с ключом, моделью и url базы данных
+```sql
+CREATE DATABASE ai_chat;
+```
 
-затем в терминале `\ai_full\backend` выполни команду
+### 2. Бэкенд
 
-uvicorn app:app --reload
+```bash
+cd backend
+```
 
-создай второй терминал, в папке `\ai_full\frontend` выполни
+Создайте файл `.env`:
 
-npm install (одноразово)
+```env
+API_KEY=sk-ваш-ключ-openai
+MODEL=gpt-4o-mini
+DATABASE_URL=postgresql+psycopg2://postgres:пароль@localhost:5432/ai_chat
+SECRET_KEY=ваш-секретный-ключ
+```
 
-npm run dev (каждый раз для запуска)
+Установите зависимости и примените миграции:
 
-во втором терминале будет ссылка на чат, перейдешь туда и там уже можно будет им пользоваться
+```bash
+pip install -r requirements.txt
+alembic upgrade head
+```
+
+Запустите сервер:
+
+```bash
+uvicorn app.main:app --reload
+```
+
+Бэкенд: http://127.0.0.1:8000  
+Документация API: http://127.0.0.1:8000/docs
+
+### 3. Фронтенд
+
+В новом терминале:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Фронтенд: http://localhost:5173
+
+## Основные возможности
+
+- Регистрация и авторизация (JWT + refresh-токены)
+- Роли пользователей: guest, wanderer, expert, legend, admin
+- Создание и редактирование персонажей
+- Чаты с персонажами (стриминг ответов)
+- История диалогов
+- Профиль пользователя с балансом
+
+## Структура проекта
+
+```
+backend/
+├── app/
+│   ├── models/       # SQLAlchemy модели
+│   ├── schemas/      # Pydantic схемы
+│   ├── routers/      # Эндпоинты
+│   ├── security.py   # JWT и хеширование паролей
+│   └── main.py
+├── alembic/          # Миграции базы данных
+└── requirements.txt
+
+frontend/
+├── src/
+│   ├── pages/        # Login, Register, Profile
+│   ├── App.jsx       # Интерфейс чата
+│   └── api.js        # Работа с токенами и запросами
+└── package.json
+```
+```
