@@ -11,8 +11,9 @@ class Conversation(Base):
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     character_id = Column(Integer, ForeignKey('characters.id'), nullable=False)
     title = Column(String, nullable=False, default="New chat")
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+        )
     user = relationship("User", back_populates="conversations")
     character = relationship("Character")
     messages = relationship("Message",

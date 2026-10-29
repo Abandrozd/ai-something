@@ -222,16 +222,126 @@ function App() {
     }
   };
 
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
+
   return (
     <div className="app">
-      {/* Здесь оставь свою существующую JSX-разметку из старого App.jsx */}
-      {/* Я не стал дублировать весь UI, потому что он у тебя уже есть */}
-      {/* Просто замени функции выше — UI можно оставить как был */}
+      {/* Sidebar */}
+      <div className="sidebar">
+        <div style={{ padding: "10px 16px" }}>
+          <a href="/profile" className="profile-link">Профиль</a>
+        </div>
 
-      <div style={{ padding: 20 }}>
-        <a href="/profile">Профиль</a>
-        {/* Вставь сюда свой существующий JSX интерфейса чата */}
+        <div className="sidebar-section">
+          <h3>Персонажи</h3>
+          <button className="new-char-btn" onClick={() => setIsModalOpen(true)}>+ Создать</button>
+          {characters.map((char) => (
+            <div
+              key={char.id}
+              className={`char-item ${viewingChar?.id === char.id ? "active" : ""}`}
+              onClick={() => handleCharClick(char)}
+            >
+              <span>{char.name}</span>
+              <button className="delete-btn" onClick={(e) => deleteChar(e, char.id)}>×</button>
+            </div>
+          ))}
+        </div>
+
+        <div className="sidebar-section">
+          <h3>История</h3>
+          {conversations.map((conv) => (
+            <div
+              key={conv.id}
+              className={`conv-item ${conversationId === conv.id ? "active" : ""}`}
+              onClick={() => loadMessages(conv.id)}
+            >
+              <span>{conv.title}</span>
+              <button className="delete-btn" onClick={(e) => deleteChat(e, conv.id)}>×</button>
+            </div>
+          ))}
+        </div>
       </div>
+
+      {/* Main area */}
+      <div className="main">
+        {viewingChar && !isEditingProfile && (
+          <div className="char-profile">
+            <h2>{viewingChar.name}</h2>
+            <p><b>Описание:</b> {viewingChar.description}</p>
+            <p><b>Характер:</b> {viewingChar.personality}</p>
+            <p><b>Сценарий:</b> {viewingChar.scenario}</p>
+            <button onClick={startChatWithChar}>Начать чат</button>
+            <button onClick={startEditingProfile}>Редактировать</button>
+          </div>
+        )}
+
+        {viewingChar && isEditingProfile && (
+          <form className="edit-form" onSubmit={handleUpdateCharacter}>
+            <h3>Редактирование</h3>
+            <textarea name="name" value={editFormData.name || ""} onChange={handleEditChange} placeholder="Имя" />
+            <textarea name="description" value={editFormData.description || ""} onChange={handleEditChange} placeholder="Описание" />
+            <textarea name="personality" value={editFormData.personality || ""} onChange={handleEditChange} placeholder="Характер" />
+            <textarea name="scenario" value={editFormData.scenario || ""} onChange={handleEditChange} placeholder="Сценарий" />
+            <textarea name="first_message" value={editFormData.first_message || ""} onChange={handleEditChange} placeholder="Первое сообщение" />
+            <button type="submit">Сохранить</button>
+            <button type="button" onClick={() => setIsEditingProfile(false)}>Отмена</button>
+          </form>
+        )}
+
+        {!viewingChar && (
+          <div className="chat-area">
+            <div className="messages">
+              {messages.map((msg, i) => (
+                <div key={i} className={`message ${msg.role}`}>
+                  <ReactMarkdown remarkPlugins={[remarkBreaks]}>{msg.content}</ReactMarkdown>
+                </div>
+              ))}
+              <div ref={messagesEndRef} />
+            </div>
+
+            <div className="input-area">
+              <textarea
+                ref={inputRef}
+                value={input}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  e.target.style.height = "auto";
+                  e.target.style.height = e.target.scrollHeight + "px";
+                }}
+                onKeyDown={handleKeyDown}
+                placeholder="Напишите сообщение..."
+                disabled={isLoading}
+              />
+              <button onClick={sendMessage} disabled={isLoading}>
+                {isLoading ? "..." : "Отправить"}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Modal создания персонажа */}
+      {isModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Новый персонаж</h3>
+            <form onSubmit={handleCreateCharacter}>
+              <input name="name" placeholder="Имя" value={formData.name} onChange={handleInputChange} required />
+              <textarea name="description" placeholder="Описание" value={formData.description} onChange={handleInputChange} />
+              <textarea name="personality" placeholder="Характер" value={formData.personality} onChange={handleInputChange} />
+              <textarea name="scenario" placeholder="Сценарий" value={formData.scenario} onChange={handleInputChange} />
+              <textarea name="first_message" placeholder="Первое сообщение" value={formData.first_message} onChange={handleInputChange} />
+              <button type="submit">Создать</button>
+              <button type="button" onClick={() => setIsModalOpen(false)}>Отмена</button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
