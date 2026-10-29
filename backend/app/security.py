@@ -11,7 +11,7 @@ from app.dependencies import get_db
 from app.models.user import User
 
 password_hash = PasswordHash.recommended()
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="users/token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 settings = get_settings()
 
 
