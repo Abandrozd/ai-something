@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { setTokens } from "../api";
+import "./css/Login.css";
 
 export default function Login() {
   const [username, setUsername] = useState("");
@@ -22,9 +23,7 @@ export default function Login() {
         body: formData,
       });
 
-      if (!res.ok) {
-        throw new Error("Неверный логин или пароль");
-      }
+      if (!res.ok) throw new Error("Неверный логин или пароль");
 
       const data = await res.json();
       setTokens(data.access_token, data.refresh_token);
@@ -35,30 +34,38 @@ export default function Login() {
   };
 
   return (
-    <div style={{ maxWidth: 400, margin: "100px auto" }}>
-      <h2>Вход</h2>
-      <form onSubmit={handleSubmit}>
-        <input
-          placeholder="Username"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          required
-        />
-        <br />
-        <input
-          type="password"
-          placeholder="Пароль"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
-        <br />
-        <button type="submit">Войти</button>
-      </form>
-      {error && <p style={{ color: "red" }}>{error}</p>}
-      <p>
-        Нет аккаунта? <a href="/register">Зарегистрироваться</a>
-      </p>
+    <div className="login-container">
+      <div className="login-card">
+        <h2 className="login-title">Вход</h2>
+        <p className="login-subtitle">Добро пожаловать обратно</p>
+
+        <form onSubmit={handleSubmit} className="login-form">
+          <input
+            className="login-input"
+            placeholder="Username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            required
+          />
+          <input
+            className="login-input"
+            type="password"
+            placeholder="Пароль"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+          <button className="login-button" type="submit">
+            Войти
+          </button>
+        </form>
+
+        {error && <p className="login-error">{error}</p>}
+
+        <p className="login-footer">
+          Нет аккаунта? <a href="/register">Зарегистрироваться</a>
+        </p>
+      </div>
     </div>
   );
 }
