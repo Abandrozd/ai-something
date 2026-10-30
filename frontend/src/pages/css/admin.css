@@ -192,3 +192,32 @@
   cursor: pointer;
   align-self: flex-start;
 }
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin: 20px 0 30px;
+}
+
+.stat-card {
+  background: #1a1a2e;
+  border: 1px solid #2a2a40;
+  border-radius: 10px;
+  padding: 16px;
+  text-align: center;
+}
+
+.stat-value {
+  display: block;
+  font-size: 28px;
+  font-weight: 700;
+  color: #6c5ce7;
+}
+
+.stat-label {
+  display: block;
+  margin-top: 4px;
+  font-size: 13px;
+  color: #aaa;
+}

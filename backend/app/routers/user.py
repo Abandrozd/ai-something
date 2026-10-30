@@ -10,6 +10,11 @@ from pydantic import BaseModel
 from app.models.user import UserRole
 from app.logger import get_logger
 from app.limits import get_message_limit, DEFAULT_LIMITS
+from datetime import datetime, timedelta, timezone
+from sqlalchemy import func
+from app.models.conversation import Conversation
+
+
 logger = get_logger(__name__)
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -188,3 +193,45 @@ async def update_limits(
             db.add(AppSetting(key=key, value=str(value)))
     await db.commit()
     return {"ok": True}
+
+
+@router.get("/stats")
+async def get_stats(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Только для администраторов")
+
+    now = datetime.now(timezone.utc)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    week_start = today_start - timedelta(days=7)
+
+    # Всего пользователей
+    total_users = await db.scalar(select(func.count(User.id)))
+
+    # Новых сегодня
+    new_today = await db.scalar(
+        select(func.count(User.id)).where(User.created_at >= today_start)
+    )
+
+    # Новых за неделю
+    new_week = await db.scalar(
+        select(func.count(User.id)).where(User.created_at >= week_start)
+    )
+
+    # Всего диалогов
+    total_conversations = await db.scalar(select(func.count(Conversation.id)))
+
+    # Активных пользователей (is_active = True)
+    active_users = await db.scalar(
+        select(func.count(User.id)).where(User.is_active == True)
+    )
+
+    return {
+        "total_users": total_users or 0,
+        "new_today": new_today or 0,
+        "new_week": new_week or 0,
+        "total_conversations": total_conversations or 0,
+        "active_users": active_users or 0,
+    }

@@ -10,6 +10,7 @@ export default function Admin() {
   const [amount, setAmount] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState(null);
 
   const [limits, setLimits] = useState({
     guest: 5,
@@ -23,6 +24,7 @@ export default function Admin() {
   useEffect(() => {
     loadUsers();
     loadLimits();
+    loadStats();
   }, []);
 
   const loadUsers = async () => {
@@ -52,6 +54,17 @@ export default function Admin() {
     }
   };
 
+  const loadStats = async () => {
+    try {
+      const res = await apiFetch("/users/stats");
+      if (res.ok) {
+        setStats(await res.json());
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const saveLimits = async () => {
     const res = await apiFetch("/users/limits", {
       method: "PUT",
@@ -73,6 +86,7 @@ export default function Admin() {
     if (res.ok) {
       setMessage("Роль обновлена");
       loadUsers();
+      loadStats();
       setSelectedUser(null);
     } else {
       setMessage("Не удалось обновить роль");
@@ -109,6 +123,7 @@ export default function Admin() {
     if (res.ok) {
       setMessage(user.is_active ? "Пользователь заблокирован" : "Пользователь разблокирован");
       loadUsers();
+      loadStats();
     } else {
       setMessage("Не удалось изменить статус");
     }
@@ -120,6 +135,32 @@ export default function Admin() {
         <h2>Панель администратора</h2>
 
         {message && <p className="admin-message">{message}</p>}
+
+        {/* Статистика */}
+        {stats && (
+          <div className="stats-grid">
+            <div className="stat-card">
+              <span className="stat-value">{stats.total_users}</span>
+              <span className="stat-label">Всего пользователей</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-value">{stats.new_today}</span>
+              <span className="stat-label">Новых сегодня</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-value">{stats.new_week}</span>
+              <span className="stat-label">Новых за неделю</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-value">{stats.total_conversations}</span>
+              <span className="stat-label">Диалогов</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-value">{stats.active_users}</span>
+              <span className="stat-label">Активных</span>
+            </div>
+          </div>
+        )}
 
         {/* Пользователи */}
         <div className="admin-section">
