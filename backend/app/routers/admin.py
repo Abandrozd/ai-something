@@ -9,28 +9,12 @@ from app.models.user import User, UserRole
 from app.models.conversation import Conversation
 from app.models.settings import AppSetting
 from app.schemas.user import UserResponse
-from app.security import get_current_user
+from app.security import get_current_user, get_current_admin
 from app.limits import DEFAULT_LIMITS
 from app.logger import get_logger
-
+from app.schemas.admin import RoleUpdate, BalanceUpdate, UserStatusUpdate, LimitsUpdate
 logger = get_logger(__name__)
 router = APIRouter(prefix="/admin", tags=["admin"])
-
-
-class RoleUpdate(BaseModel):
-    username: str
-    role: UserRole
-
-
-class BalanceUpdate(BaseModel):
-    username: str
-    amount: float
-
-
-class UserStatusUpdate(BaseModel):
-    username: str
-    is_active: bool
-
 
 def require_admin(current_user: User = Depends(get_current_user)):
     if current_user.role != UserRole.ADMIN:
@@ -41,7 +25,7 @@ def require_admin(current_user: User = Depends(get_current_user)):
 @router.get("/users", response_model=list[UserResponse])
 async def get_users(
     db: AsyncSession = Depends(get_db),
-    admin: User = Depends(require_admin),
+    admin: User = Depends(get_current_admin),
 ):
     result = await db.execute(select(User).order_by(User.id))
     return result.scalars().all()
@@ -51,7 +35,7 @@ async def get_users(
 async def update_user_role(
     data: RoleUpdate,
     db: AsyncSession = Depends(get_db),
-    admin: User = Depends(require_admin),
+    admin: User = Depends(get_current_admin),
 ):
     result = await db.execute(select(User).where(User.username == data.username))
     user = result.scalar_one_or_none()
@@ -70,7 +54,7 @@ async def update_user_role(
 async def update_balance(
     data: BalanceUpdate,
     db: AsyncSession = Depends(get_db),
-    admin: User = Depends(require_admin),
+    admin: User = Depends(get_current_admin),
 ):
     result = await db.execute(select(User).where(User.username == data.username))
     user = result.scalar_one_or_none()
@@ -89,7 +73,7 @@ async def update_balance(
 async def update_user_status(
     data: UserStatusUpdate,
     db: AsyncSession = Depends(get_db),
-    admin: User = Depends(require_admin),
+    admin: User = Depends(get_current_admin),
 ):
     result = await db.execute(select(User).where(User.username == data.username))
     user = result.scalar_one_or_none()
@@ -107,7 +91,7 @@ async def update_user_status(
 @router.get("/limits")
 async def get_limits(
     db: AsyncSession = Depends(get_db),
-    admin: User = Depends(require_admin),
+    admin: User = Depends(get_current_admin),
 ):
     limits = {}
     for role in ["guest", "wanderer", "expert", "legend", "admin"]:
@@ -120,9 +104,9 @@ async def get_limits(
 
 @router.put("/limits")
 async def update_limits(
-    data: dict,
+    data: LimitsUpdate,
     db: AsyncSession = Depends(get_db),
-    admin: User = Depends(require_admin),
+    admin: User = Depends(get_current_admin),
 ):
     for role, value in data.items():
         if role not in DEFAULT_LIMITS:
@@ -142,7 +126,7 @@ async def update_limits(
 @router.get("/stats")
 async def get_stats(
     db: AsyncSession = Depends(get_db),
-    admin: User = Depends(require_admin),
+    admin: User = Depends(get_current_admin),
 ):
     now = datetime.now(timezone.utc)
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
