@@ -7,10 +7,13 @@ from app.models.user import User
 from app.schemas.user import UserCreate, UserResponse
 from app.security import hash_password, get_current_user
 from app.logger import get_logger
-
+from pydantic import BaseModel
 logger = get_logger(__name__)
 router = APIRouter(prefix="/users", tags=["users"])
 
+class PasswordChange(BaseModel):
+    old_password: str
+    new_password: str
 
 @router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def create_user(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
@@ -40,3 +43,23 @@ async def create_user(user_data: UserCreate, db: AsyncSession = Depends(get_db))
 @router.get("/me", response_model=UserResponse)
 async def get_me(current_user: User = Depends(get_current_user)):
     return current_user
+
+@router.post("/change-password")
+async def change_password(
+    data: PasswordChange,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    from app.security import verify_password, hash_password
+
+    if not verify_password(data.old_password, current_user.hashed_password):
+        raise HTTPException(status_code=400, detail="Неверный текущий пароль")
+
+    if len(data.new_password) < 6:
+        raise HTTPException(status_code=400, detail="Новый пароль должен быть не короче 6 символов")
+
+    current_user.hashed_password = hash_password(data.new_password)
+    await db.commit()
+
+    logger.info("Пользователь %s сменил пароль", current_user.username)
+    return {"message": "Пароль успешно изменён"}

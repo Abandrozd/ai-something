@@ -6,6 +6,9 @@ import "./css/Profile.css";
 export default function Profile() {
   const [user, setUser] = useState(null);
   const [error, setError] = useState("");
+  const [oldPassword, setOldPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [passwordMessage, setPasswordMessage] = useState("");
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -25,7 +28,32 @@ export default function Profile() {
 
   const handleTopUp = () => {
     alert("Пополнение баланса будет доступно позже");
-    // позже сюда можно поставить переход на страницу оплаты
+  };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    setPasswordMessage("");
+
+    try {
+      const res = await apiFetch("/users/change-password", {
+        method: "POST",
+        body: JSON.stringify({
+          old_password: oldPassword,
+          new_password: newPassword,
+        }),
+      });
+
+      if (res.ok) {
+        setPasswordMessage("Пароль успешно изменён");
+        setOldPassword("");
+        setNewPassword("");
+      } else {
+        const data = await res.json();
+        setPasswordMessage(data.detail || "Ошибка при смене пароля");
+      }
+    } catch (e) {
+      setPasswordMessage("Ошибка сети");
+    }
   };
 
   if (error) return <div className="profile-container"><p className="profile-error">{error}</p></div>;
@@ -62,14 +90,43 @@ export default function Profile() {
           Пополнить
         </button>
 
+        {/* Смена пароля */}
+        <div className="password-section">
+          <h3>Смена пароля</h3>
+          <form onSubmit={handleChangePassword}>
+            <input
+              type="password"
+              placeholder="Текущий пароль"
+              value={oldPassword}
+              onChange={(e) => setOldPassword(e.target.value)}
+              required
+            />
+            <input
+              type="password"
+              placeholder="Новый пароль"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              required
+            />
+            <button type="submit">Сменить пароль</button>
+          </form>
+          {passwordMessage && (
+            <p className={passwordMessage.includes("успешно") ? "success" : "error"}>
+              {passwordMessage}
+            </p>
+          )}
+        </div>
+
         <button className="profile-logout" onClick={handleLogout}>
           Выйти
         </button>
-      {user.role === "admin" && (
-        <a href="/admin" className="profile-back" style={{ display: "block", marginTop: "10px" }}>
-          Админ-панель
-        </a>
-      )}
+
+        {user.role === "admin" && (
+          <a href="/admin" className="profile-back" style={{ display: "block", marginTop: "10px" }}>
+            Админ-панель
+          </a>
+        )}
+
         <a href="/" className="profile-back">
           Вернуться в чат
         </a>
