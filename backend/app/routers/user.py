@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-
+from app.models.settings import AppSetting
 from app.dependencies import get_db
 from app.models.user import User
 from app.schemas.user import UserCreate, UserResponse
@@ -9,7 +9,7 @@ from app.security import hash_password, get_current_user
 from pydantic import BaseModel
 from app.models.user import UserRole
 from app.logger import get_logger
-
+from app.limits import get_message_limit, DEFAULT_LIMITS
 logger = get_logger(__name__)
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -151,3 +151,40 @@ async def update_user_status(
     user.is_active = data.is_active
     await db.commit()
     return {"username": user.username, "is_active": user.is_active}
+
+@router.get("/limits")
+async def get_limits(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Только для администраторов")
+
+    limits = {}
+    for role in ["guest", "wanderer", "expert", "legend", "admin"]:
+        key = f"limit_{role}"
+        result = await db.execute(select(AppSetting).where(AppSetting.key == key))
+        setting = result.scalar_one_or_none()
+        limits[role] = int(setting.value) if setting else int(DEFAULT_LIMITS[role])
+    return limits
+
+
+@router.put("/limits")
+async def update_limits(
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Только для администраторов")
+
+    for role, value in data.items():
+        key = f"limit_{role}"
+        result = await db.execute(select(AppSetting).where(AppSetting.key == key))
+        setting = result.scalar_one_or_none()
+        if setting:
+            setting.value = str(value)
+        else:
+            db.add(AppSetting(key=key, value=str(value)))
+    await db.commit()
+    return {"ok": True}

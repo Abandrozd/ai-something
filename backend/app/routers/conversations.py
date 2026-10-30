@@ -67,3 +67,21 @@ async def delete_conversation(
     await db.delete(conversation)
     await db.commit()
     return {"ok": True}
+
+@router.delete("/{conversation_id}/messages")
+async def clear_conversation_messages(
+    conversation_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    conversation = await db.get(Conversation, conversation_id)
+    if not conversation or conversation.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Диалог не найден")
+
+    await db.execute(
+        Message.__table__.delete().where(Message.conversation_id == conversation_id)
+    )
+    await db.commit()
+
+    logger.info("Пользователь %s очистил историю диалога %s", current_user.username, conversation_id)
+    return {"ok": True}
