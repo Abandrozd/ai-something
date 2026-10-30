@@ -30,7 +30,7 @@ export default function Admin() {
   const loadUsers = async () => {
     setLoading(true);
     try {
-      const res = await apiFetch("/users/");
+      const res = await apiFetch("/admin/users");
       if (res.ok) {
         setUsers(await res.json());
       } else {
@@ -44,7 +44,7 @@ export default function Admin() {
 
   const loadLimits = async () => {
     try {
-      const res = await apiFetch("/users/limits");
+      const res = await apiFetch("/admin/limits");
       if (res.ok) {
         setLimits(await res.json());
         setLimitsLoaded(true);
@@ -56,7 +56,7 @@ export default function Admin() {
 
   const loadStats = async () => {
     try {
-      const res = await apiFetch("/users/stats");
+      const res = await apiFetch("/admin/stats");
       if (res.ok) {
         setStats(await res.json());
       }
@@ -66,7 +66,7 @@ export default function Admin() {
   };
 
   const saveLimits = async () => {
-    const res = await apiFetch("/users/limits", {
+    const res = await apiFetch("/admin/limits", {
       method: "PUT",
       body: JSON.stringify(limits),
     });
@@ -79,7 +79,7 @@ export default function Admin() {
 
   const handleRoleChange = async () => {
     if (!selectedUser || !newRole) return;
-    const res = await apiFetch("/users/role", {
+    const res = await apiFetch("/admin/users/role", {
       method: "PATCH",
       body: JSON.stringify({ username: selectedUser.username, role: newRole }),
     });
@@ -95,7 +95,7 @@ export default function Admin() {
 
   const handleBalance = async () => {
     if (!balanceUser || !amount) return;
-    const res = await apiFetch("/users/balance", {
+    const res = await apiFetch("/admin/users/balance", {
       method: "PATCH",
       body: JSON.stringify({
         username: balanceUser.username,
@@ -113,7 +113,7 @@ export default function Admin() {
   };
 
   const toggleStatus = async (user) => {
-    const res = await apiFetch("/users/status", {
+    const res = await apiFetch("/admin/users/status", {
       method: "PATCH",
       body: JSON.stringify({
         username: user.username,

@@ -3,7 +3,7 @@ from app.models import User, Character, Conversation, Message  # noqa: F401
 from app.logger import setup_logging, get_logger
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import characters, chat, conversations, user, auth
+from app.routers import characters, chat, conversations, user, auth, admin
 from app.init_admin import create_admin_if_not_exists
 import time
 
@@ -35,7 +35,7 @@ app.include_router(chat.router)
 app.include_router(conversations.router)
 app.include_router(user.router)
 app.include_router(auth.router)
-
+app.include_router(admin.router)
 
 @app.get("/")
 async def root():
