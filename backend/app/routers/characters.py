@@ -6,7 +6,9 @@ from app.dependencies import get_db
 from app.models.character import Character
 from app.schemas.character import CharacterCreate, CharacterUpdate, CharacterResponse
 from app.security import get_current_user
+from app.logger import get_logger
 
+logger = get_logger(__name__)
 router = APIRouter(prefix="/characters", tags=["characters"])
 
 
@@ -29,6 +31,10 @@ async def create_character(
     db.add(character)
     await db.commit()
     await db.refresh(character)
+    logger.info(
+        "Админ %s создал персонажа '%s' (id=%s)", current_user.username,
+        character.name, character.id
+        )
     return character
 
 
@@ -60,6 +66,9 @@ async def update_character(
 
     await db.commit()
     await db.refresh(character)
+    logger.info(
+        "Админ %s обновил персонажа id=%s", current_user.username, character_id
+        )
     return character
 
 
@@ -78,4 +87,8 @@ async def delete_character(
 
     await db.delete(character)
     await db.commit()
+    logger.info(
+        "Админ %s удалил персонажа id=%s (%s)", current_user.username,
+        character_id, character.name
+        )
     return {"ok": True}

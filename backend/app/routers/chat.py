@@ -11,8 +11,12 @@ from app.models.character import Character
 from app.schemas.chat import ChatRequest
 from app.config import get_settings
 from app.security import get_current_user
-
+from app.logger import get_logger
 from openai import AsyncOpenAI
+
+
+logger = get_logger(__name__)
+
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 settings = get_settings()
@@ -44,10 +48,14 @@ async def chat(
             character_id=data.character_id,
             title=title,
         )
+
         db.add(conversation)
         await db.commit()
         await db.refresh(conversation)
-
+        logger.info(
+            "Создан новый диалог id=%s для user_id=%s (персонаж: %s)",
+            conversation.id, current_user.id, title
+            )
     # Сохраняем сообщение пользователя
     user_msg = Message(
         conversation_id=conversation.id,
@@ -79,24 +87,37 @@ async def chat(
     # Стриминг ответа
     async def generate():
         full_response = ""
-        stream = await client.chat.completions.create(
-            model=settings.MODEL,
-            messages=api_messages,
-            stream=True,
-        )
-        async for chunk in stream:
-            if chunk.choices[0].delta.content:
-                text = chunk.choices[0].delta.content
-                full_response += text
-                yield text
+        try:
+            stream = await client.chat.completions.create(
+                model=settings.MODEL,
+                messages=api_messages,
+                stream=True,
+                )
+            async for chunk in stream:
+                if chunk.choices[0].delta.content:
+                    text = chunk.choices[0].delta.content
+                    full_response += text
+                    yield text
+        except Exception as e:
+            logger.error(
+                "Ошибка OpenAI для user_id=%s: %s", current_user.id, str(e)
+                )
+            yield "Произошла ошибка при генерации ответа."
+            return
 
         # Сохраняем ответ ассистента
         ai_msg = Message(
             conversation_id=conversation.id,
             role="assistant",
             content=full_response,
-        )
+            )
         db.add(ai_msg)
         await db.commit()
+
+        logger.info(
+            "Ответ сохранён в диалоге %s (длина: %s)",
+            conversation.id,
+            len(full_response),
+            )
 
     return StreamingResponse(generate(), media_type="text/plain")

@@ -7,7 +7,9 @@ from app.dependencies import get_db
 from app.models.conversation import Conversation
 from app.models.message import Message
 from app.schemas.conversation import ConversationResponse
+from app.logger import get_logger
 
+logger = get_logger(__name__)
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 
 
@@ -34,6 +36,10 @@ async def get_messages(
     # Проверяем, что диалог принадлежит пользователю
     conversation = await db.get(Conversation, conversation_id)
     if not conversation or conversation.user_id != current_user.id:
+        logger.warning(
+            "Попытка доступа к чужому диалогу: user_id=%s, conversation_id=%s",
+            current_user.id, conversation_id
+            )
         raise HTTPException(status_code=404, detail="Диалог не найден")
 
     result = await db.execute(
@@ -54,7 +60,10 @@ async def delete_conversation(
     conversation = await db.get(Conversation, conversation_id)
     if not conversation or conversation.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Диалог не найден")
-
+    logger.info(
+        "Пользователь %s удалил диалог %s", current_user.username,
+        conversation_id
+        )
     await db.delete(conversation)
     await db.commit()
     return {"ok": True}

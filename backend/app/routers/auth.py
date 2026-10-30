@@ -96,4 +96,7 @@ async def logout(current_user: User = Depends(get_current_user)):
     На текущем этапе просто подтверждает выход.
     Позже можно добавить blacklist refresh-токенов.
     """
+    logger.info(
+        "Выход из системы: %s (id=%s)", current_user.username, current_user.id
+        )
     return {"message": "Вы успешно вышли из системы"}

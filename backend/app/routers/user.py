@@ -8,6 +8,9 @@ from app.schemas.user import UserCreate, UserResponse
 from app.security import hash_password, get_current_user
 from pydantic import BaseModel
 from app.models.user import UserRole
+from app.logger import get_logger
+
+logger = get_logger(__name__)
 router = APIRouter(prefix="/users", tags=["users"])
 
 
@@ -32,6 +35,10 @@ async def create_user(user_data: UserCreate, db: AsyncSession = Depends(get_db))
         )
     )
     if result.scalar_one_or_none():
+        logger.warning(
+            "Попытка регистрации существующего пользователя: %s / %s",
+            user_data.username, user_data.email
+            )
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Пользователь с таким email или username уже существует",
@@ -46,6 +53,10 @@ async def create_user(user_data: UserCreate, db: AsyncSession = Depends(get_db))
     db.add(db_user)
     await db.commit()
     await db.refresh(db_user)
+    logger.info(
+        "Зарегистрирован новый пользователь: %s (id=%s)", db_user.username,
+        db_user.id
+        )
     return db_user
 
 
@@ -71,7 +82,10 @@ async def update_user_role(
     user.role = data.role
     await db.commit()
     await db.refresh(user)
-
+    logger.info(
+        "Админ %s сменил роль пользователя %s: %s → %s",
+        current_user.username, user.username, user.role, data.role
+        )
     return {
         "username": user.username,
         "role": user.role.value,
@@ -83,6 +97,10 @@ async def get_users(
     current_user: User = Depends(get_current_user),
 ):
     if current_user.role != UserRole.ADMIN:
+        logger.warning(
+            "Попытка просмотра пользователей без прав: %s",
+            current_user.username
+            )
         raise HTTPException(status_code=403, detail="Только для администраторов")
 
     result = await db.execute(select(User).order_by(User.id))
@@ -105,6 +123,10 @@ async def update_balance(
     user.balance = float(user.balance or 0) + data.amount
     await db.commit()
     await db.refresh(user)
+    logger.info(
+        "Админ %s изменил баланс %s на %s (итого: %s)",
+        current_user.username, user.username, data.amount, user.balance
+        )
     return {"username": user.username, "balance": user.balance}
 
 
@@ -121,7 +143,11 @@ async def update_user_status(
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
-
+    action = "заблокировал" if not data.is_active else "разблокировал"
+    logger.info(
+        "Админ %s %s пользователя %s", current_user.username, action,
+        user.username
+        )
     user.is_active = data.is_active
     await db.commit()
     return {"username": user.username, "is_active": user.is_active}
