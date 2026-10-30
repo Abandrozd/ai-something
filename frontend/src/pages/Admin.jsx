@@ -11,8 +11,18 @@ export default function Admin() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
 
+  const [limits, setLimits] = useState({
+    guest: 5,
+    wanderer: 10,
+    expert: 15,
+    legend: 20,
+    admin: 1000000,
+  });
+  const [limitsLoaded, setLimitsLoaded] = useState(false);
+
   useEffect(() => {
     loadUsers();
+    loadLimits();
   }, []);
 
   const loadUsers = async () => {
@@ -28,6 +38,30 @@ export default function Admin() {
       setMessage("Ошибка сети");
     }
     setLoading(false);
+  };
+
+  const loadLimits = async () => {
+    try {
+      const res = await apiFetch("/users/limits");
+      if (res.ok) {
+        setLimits(await res.json());
+        setLimitsLoaded(true);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const saveLimits = async () => {
+    const res = await apiFetch("/users/limits", {
+      method: "PUT",
+      body: JSON.stringify(limits),
+    });
+    if (res.ok) {
+      setMessage("Лимиты сохранены");
+    } else {
+      setMessage("Не удалось сохранить лимиты");
+    }
   };
 
   const handleRoleChange = async () => {
@@ -87,6 +121,7 @@ export default function Admin() {
 
         {message && <p className="admin-message">{message}</p>}
 
+        {/* Пользователи */}
         <div className="admin-section">
           <h3>Пользователи</h3>
           {loading ? (
@@ -140,6 +175,31 @@ export default function Admin() {
           )}
         </div>
 
+        {/* Лимиты */}
+        <div className="admin-section">
+          <h3>Лимиты сообщений на диалог</h3>
+          {limitsLoaded ? (
+            <div className="limits-form">
+              {Object.entries(limits).map(([role, value]) => (
+                <div key={role} className="limit-row">
+                  <label>{role}</label>
+                  <input
+                    type="number"
+                    value={value}
+                    onChange={(e) =>
+                      setLimits({ ...limits, [role]: parseInt(e.target.value) || 0 })
+                    }
+                  />
+                </div>
+              ))}
+              <button onClick={saveLimits}>Сохранить лимиты</button>
+            </div>
+          ) : (
+            <p>Загрузка лимитов...</p>
+          )}
+        </div>
+
+        {/* Модалки */}
         {selectedUser && (
           <div className="role-editor">
             <h4>Смена роли: {selectedUser.username}</h4>

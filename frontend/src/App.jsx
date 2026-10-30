@@ -270,7 +270,16 @@ if (!res.ok) {
     }
 
     if (!conversationId) {
-      fetchConversations();
+      const convsRes = await apiFetch("/conversations");
+      if (convsRes.ok) {
+        const convs = await convsRes.json();
+        if (convs.length > 0) {
+          // Берём самый новый диалог
+          const newest = convs[0];
+          setConversationId(newest.id);
+          setConversations(convs);
+        }
+      }
     }
     } catch (error) {
       console.error(error);
