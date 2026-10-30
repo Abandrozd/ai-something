@@ -11,6 +11,8 @@ export default function Admin() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState("");
 
   const [limits, setLimits] = useState({
     guest: 5,
@@ -22,15 +24,22 @@ export default function Admin() {
   const [limitsLoaded, setLimitsLoaded] = useState(false);
 
   useEffect(() => {
-    loadUsers();
     loadLimits();
     loadStats();
   }, []);
 
+  useEffect(() => {
+    loadUsers();
+  }, [search, roleFilter]);
+
   const loadUsers = async () => {
     setLoading(true);
     try {
-      const res = await apiFetch("/admin/users");
+      const params = new URLSearchParams();
+      if (search) params.append("search", search);
+      if (roleFilter) params.append("role", roleFilter);
+
+      const res = await apiFetch(`/admin/users?${params.toString()}`);
       if (res.ok) {
         setUsers(await res.json());
       } else {
@@ -165,10 +174,28 @@ export default function Admin() {
         {/* Пользователи */}
         <div className="admin-section">
           <h3>Пользователи</h3>
+
+          <div className="filters">
+            <input
+              type="text"
+              placeholder="Поиск по нику или email"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
+              <option value="">Все роли</option>
+              <option value="guest">guest</option>
+              <option value="wanderer">wanderer</option>
+              <option value="expert">expert</option>
+              <option value="legend">legend</option>
+              <option value="admin">admin</option>
+            </select>
+          </div>
+
           {loading ? (
             <p>Загрузка...</p>
           ) : users.length === 0 ? (
-            <p>Пользователей нет</p>
+            <p>Пользователей не найдено</p>
           ) : (
             <table className="admin-table">
               <thead>

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_db
@@ -19,12 +19,16 @@ from app.services.admin_service import (
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
+
+
 @router.get("/users", response_model=list[UserResponse])
 async def list_users(
+    search: str | None = Query(None, description="Поиск по нику или email"),
+    role: str | None = Query(None, description="Фильтр по роли"),
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
-    return await get_all_users(db)
+    return await get_all_users(db, search=search, role=role)
 
 
 @router.patch("/users/role")

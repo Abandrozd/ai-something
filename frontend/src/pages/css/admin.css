@@ -221,3 +221,22 @@
   font-size: 13px;
   color: #aaa;
 }
+
+.filters {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.filters input,
+.filters select {
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #333;
+  background: #1a1a2e;
+  color: white;
+}
+
+.filters input {
+  flex: 1;
+}

@@ -13,8 +13,25 @@ from app.logger import get_logger
 logger = get_logger(__name__)
 
 
-async def get_all_users(db: AsyncSession):
-    result = await db.execute(select(User).order_by(User.id))
+async def get_all_users(
+    db: AsyncSession,
+    search: str | None = None,
+    role: str | None = None,
+):
+    query = select(User)
+
+    if search:
+        search_pattern = f"%{search}%"
+        query = query.where(
+            (User.username.ilike(search_pattern)) |
+            (User.email.ilike(search_pattern))
+        )
+
+    if role:
+        query = query.where(User.role == role)
+
+    query = query.order_by(User.id)
+    result = await db.execute(query)
     return result.scalars().all()
 
 
