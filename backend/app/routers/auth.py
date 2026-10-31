@@ -70,6 +70,7 @@ async def refresh_token(data: RefreshRequest, db: AsyncSession = Depends(get_db)
             raise HTTPException(status_code=401, detail="Неверный токен")
 
     except JWTError:
+        logger.warning("Неудачная попытка обновления токена")
         raise HTTPException(status_code=401, detail="Недействительный refresh-токен")
 
     result = await db.execute(
@@ -81,7 +82,7 @@ async def refresh_token(data: RefreshRequest, db: AsyncSession = Depends(get_db)
 
     new_access = create_access_token({"sub": str(user.id), "role": user.role.value})
     new_refresh = create_refresh_token({"sub": str(user.id)})
-
+    logger.info("Обновление токена для user_id=%s", user_id)
     return {
         "access_token": new_access,
         "refresh_token": new_refresh,
@@ -96,4 +97,7 @@ async def logout(current_user: User = Depends(get_current_user)):
     На текущем этапе просто подтверждает выход.
     Позже можно добавить blacklist refresh-токенов.
     """
+    logger.info(
+        "Выход из системы: %s (id=%s)", current_user.username, current_user.id
+        )
     return {"message": "Вы успешно вышли из системы"}

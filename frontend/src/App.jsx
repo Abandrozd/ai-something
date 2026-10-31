@@ -160,6 +160,36 @@ function App() {
     } catch (error) { alert("Ошибка удаления"); }
   };
 
+const clearHistory = async () => {
+  if (!conversationId) return;
+  if (!window.confirm("Очистить историю этого диалога? Лимит сообщений сбросится.")) return;
+
+  try {
+    const res = await apiFetch(`/conversations/${conversationId}/messages`, {
+      method: "DELETE",
+    });
+    if (res.ok) {
+      // Находим персонажа текущего диалога
+      const conv = conversations.find(c => c.id === conversationId);
+      let firstMessage = null;
+
+      if (conv?.character_id) {
+        const char = characters.find(c => c.id === conv.character_id);
+        if (char?.first_message) {
+          firstMessage = char.first_message;
+        }
+      }
+
+      if (firstMessage) {
+        setMessages([{ role: "assistant", content: firstMessage }]);
+      } else {
+        setMessages([]);
+      }
+    }
+  } catch (e) {
+    alert("Не удалось очистить историю");
+  }
+};
   const handleCreateCharacter = async (e) => {
     e.preventDefault();
     try {
@@ -200,34 +230,57 @@ function App() {
         conversation_id: conversationId,
         character_id: selectedCharId
       };
-      const res = await apiFetch("/chat", {
-        method: 'POST',
-        body: JSON.stringify(payload)
+const res = await apiFetch("/chat", {
+  method: 'POST',
+  body: JSON.stringify(payload)
+});
+
+if (!res.ok) {
+  if (res.status === 429) {
+    setMessages((prev) => {
+      const newMessages = [...prev];
+      const lastIndex = newMessages.length - 1;
+      newMessages[lastIndex] = {
+        role: "assistant",
+        content: "Достигнут лимит сообщений в данном тарифном плане. Повысьте план в личном кабинете."
+      };
+      return newMessages;
+    });
+    return;
+  }
+  throw new Error("Ошибка сервера");
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder("utf-8");
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const textChunk = decoder.decode(value, { stream: true });
+      setMessages((prev) => {
+        const newMessages = [...prev];
+        const lastIndex = newMessages.length - 1;
+        newMessages[lastIndex] = {
+          ...newMessages[lastIndex],
+          content: newMessages[lastIndex].content + textChunk
+        };
+        return newMessages;
       });
+    }
 
-      if (!res.ok) throw new Error("Ошибка сервера");
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder("utf-8");
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const textChunk = decoder.decode(value, { stream: true });
-        setMessages((prev) => {
-          const newMessages = [...prev];
-          const lastIndex = newMessages.length - 1;
-          newMessages[lastIndex] = {
-            ...newMessages[lastIndex],
-            content: newMessages[lastIndex].content + textChunk
-          };
-          return newMessages;
-        });
+    if (!conversationId) {
+      const convsRes = await apiFetch("/conversations");
+      if (convsRes.ok) {
+        const convs = await convsRes.json();
+        if (convs.length > 0) {
+          // Берём самый новый диалог
+          const newest = convs[0];
+          setConversationId(newest.id);
+          setConversations(convs);
+        }
       }
-
-      if (!conversationId) {
-        fetchConversations();
-      }
+    }
     } catch (error) {
       console.error(error);
       alert("Ошибка при отправке сообщения");
@@ -342,6 +395,11 @@ function App() {
               <button onClick={sendMessage} disabled={isLoading}>
                 {isLoading ? "..." : "Отправить"}
               </button>
+              {conversationId && (
+                <button onClick={clearHistory} className="clear-btn">
+                  Очистить
+                </button>
+              )}
             </div>
           </div>
         )}

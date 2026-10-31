@@ -10,15 +10,36 @@ export default function Admin() {
   const [amount, setAmount] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState(null);
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState("");
+
+  const [limits, setLimits] = useState({
+    guest: 5,
+    wanderer: 10,
+    expert: 15,
+    legend: 20,
+    admin: 1000000,
+  });
+  const [limitsLoaded, setLimitsLoaded] = useState(false);
+
+  useEffect(() => {
+    loadLimits();
+    loadStats();
+  }, []);
 
   useEffect(() => {
     loadUsers();
-  }, []);
+  }, [search, roleFilter]);
 
   const loadUsers = async () => {
     setLoading(true);
     try {
-      const res = await apiFetch("/users/");
+      const params = new URLSearchParams();
+      if (search) params.append("search", search);
+      if (roleFilter) params.append("role", roleFilter);
+
+      const res = await apiFetch(`/admin/users?${params.toString()}`);
       if (res.ok) {
         setUsers(await res.json());
       } else {
@@ -30,15 +51,51 @@ export default function Admin() {
     setLoading(false);
   };
 
+  const loadLimits = async () => {
+    try {
+      const res = await apiFetch("/admin/limits");
+      if (res.ok) {
+        setLimits(await res.json());
+        setLimitsLoaded(true);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const loadStats = async () => {
+    try {
+      const res = await apiFetch("/admin/stats");
+      if (res.ok) {
+        setStats(await res.json());
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const saveLimits = async () => {
+    const res = await apiFetch("/admin/limits", {
+      method: "PUT",
+      body: JSON.stringify(limits),
+    });
+    if (res.ok) {
+      setMessage("Лимиты сохранены");
+    } else {
+      setMessage("Не удалось сохранить лимиты");
+    }
+  };
+
   const handleRoleChange = async () => {
     if (!selectedUser || !newRole) return;
-    const res = await apiFetch("/users/role", {
+    const res = await apiFetch("/admin/users/role", {
       method: "PATCH",
       body: JSON.stringify({ username: selectedUser.username, role: newRole }),
     });
     if (res.ok) {
       setMessage("Роль обновлена");
       loadUsers();
+      loadStats();
       setSelectedUser(null);
     } else {
       setMessage("Не удалось обновить роль");
@@ -47,7 +104,7 @@ export default function Admin() {
 
   const handleBalance = async () => {
     if (!balanceUser || !amount) return;
-    const res = await apiFetch("/users/balance", {
+    const res = await apiFetch("/admin/users/balance", {
       method: "PATCH",
       body: JSON.stringify({
         username: balanceUser.username,
@@ -65,7 +122,7 @@ export default function Admin() {
   };
 
   const toggleStatus = async (user) => {
-    const res = await apiFetch("/users/status", {
+    const res = await apiFetch("/admin/users/status", {
       method: "PATCH",
       body: JSON.stringify({
         username: user.username,
@@ -75,6 +132,7 @@ export default function Admin() {
     if (res.ok) {
       setMessage(user.is_active ? "Пользователь заблокирован" : "Пользователь разблокирован");
       loadUsers();
+      loadStats();
     } else {
       setMessage("Не удалось изменить статус");
     }
@@ -87,12 +145,57 @@ export default function Admin() {
 
         {message && <p className="admin-message">{message}</p>}
 
+        {/* Статистика */}
+        {stats && (
+          <div className="stats-grid">
+            <div className="stat-card">
+              <span className="stat-value">{stats.total_users}</span>
+              <span className="stat-label">Всего пользователей</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-value">{stats.new_today}</span>
+              <span className="stat-label">Новых сегодня</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-value">{stats.new_week}</span>
+              <span className="stat-label">Новых за неделю</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-value">{stats.total_conversations}</span>
+              <span className="stat-label">Диалогов</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-value">{stats.active_users}</span>
+              <span className="stat-label">Активных</span>
+            </div>
+          </div>
+        )}
+
+        {/* Пользователи */}
         <div className="admin-section">
           <h3>Пользователи</h3>
+
+          <div className="filters">
+            <input
+              type="text"
+              placeholder="Поиск по нику или email"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
+              <option value="">Все роли</option>
+              <option value="guest">guest</option>
+              <option value="wanderer">wanderer</option>
+              <option value="expert">expert</option>
+              <option value="legend">legend</option>
+              <option value="admin">admin</option>
+            </select>
+          </div>
+
           {loading ? (
             <p>Загрузка...</p>
           ) : users.length === 0 ? (
-            <p>Пользователей нет</p>
+            <p>Пользователей не найдено</p>
           ) : (
             <table className="admin-table">
               <thead>
@@ -140,6 +243,31 @@ export default function Admin() {
           )}
         </div>
 
+        {/* Лимиты */}
+        <div className="admin-section">
+          <h3>Лимиты сообщений на диалог</h3>
+          {limitsLoaded ? (
+            <div className="limits-form">
+              {Object.entries(limits).map(([role, value]) => (
+                <div key={role} className="limit-row">
+                  <label>{role}</label>
+                  <input
+                    type="number"
+                    value={value}
+                    onChange={(e) =>
+                      setLimits({ ...limits, [role]: parseInt(e.target.value) || 0 })
+                    }
+                  />
+                </div>
+              ))}
+              <button onClick={saveLimits}>Сохранить лимиты</button>
+            </div>
+          ) : (
+            <p>Загрузка лимитов...</p>
+          )}
+        </div>
+
+        {/* Модалки */}
         {selectedUser && (
           <div className="role-editor">
             <h4>Смена роли: {selectedUser.username}</h4>

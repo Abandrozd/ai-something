@@ -4,12 +4,13 @@ from app.database import AsyncSessionLocal
 from app.models.user import User, UserRole
 from app.security import hash_password
 from app.config import get_settings
-
+from app.logger import get_logger
+logger = get_logger(__name__)
 
 async def create_admin_if_not_exists():
-    print("=== Проверяем создание админа ===")
+
     settings = get_settings()
-    print("ADMIN_USERNAME:", settings.ADMIN_USERNAME)
+
 
     async with AsyncSessionLocal() as session:
         result = await session.execute(
@@ -27,4 +28,6 @@ async def create_admin_if_not_exists():
             balance=0,
         )
         session.add(admin)
+
         await session.commit()
+        logger.info("Создан администратор: %s", settings.ADMIN_USERNAME)

@@ -311,3 +311,18 @@ body {
 .profile-link:hover {
   background: #5b4cdb;
 }
+
+.clear-btn {
+  background: #444;
+  color: #eee;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  margin-left: 8px;
+}
+
+.clear-btn:hover {
+  background: #555;
+}
