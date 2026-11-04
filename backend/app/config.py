@@ -3,6 +3,11 @@ from functools import lru_cache
 from pydantic import model_validator
 from pydantic_settings import BaseSettings
 
+# Exact placeholder strings committed in backend/.env.example.
+# A copied example must not boot. Other values, including short ones, are left alone.
+_EXAMPLE_SECRET_KEY = "replace-with-a-long-random-string"
+_EXAMPLE_ADMIN_PASSWORD = "replace-with-a-strong-password"
+
 
 class Settings(BaseSettings):
     API_KEY: str
@@ -22,6 +27,20 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
+
+    @model_validator(mode="after")
+    def reject_published_example_secrets(self):
+        if self.SECRET_KEY == _EXAMPLE_SECRET_KEY:
+            raise ValueError(
+                "Refusing to start with the SECRET_KEY published in .env.example. "
+                "Set SECRET_KEY to your own value."
+            )
+        if self.ADMIN_PASSWORD == _EXAMPLE_ADMIN_PASSWORD:
+            raise ValueError(
+                "Refusing to start with the ADMIN_PASSWORD published in .env.example. "
+                "Set ADMIN_PASSWORD to your own value."
+            )
+        return self
 
     @model_validator(mode="after")
     def reject_known_admin_credentials(self):

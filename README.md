@@ -37,7 +37,7 @@ SECRET_KEY=ваш-секретный-ключ
 ADMIN_PASSWORD=замените-на-свой-пароль
 ```
 
-`API_KEY`, `DATABASE_URL`, `SECRET_KEY` и `ADMIN_PASSWORD` нужны уже при импорте приложения. Пароль администратора по умолчанию не задаётся. Если логин и пароль — пара `admin` / `admin`, процесс не запускается. Имя и почта первого администратора по умолчанию: `admin` и `admin@example.com` (переменные `ADMIN_USERNAME`, `ADMIN_EMAIL`).
+`API_KEY`, `DATABASE_URL`, `SECRET_KEY` и `ADMIN_PASSWORD` нужны уже при импорте приложения. Пароль администратора по умолчанию не задаётся. Процесс не запускается, если `SECRET_KEY` или `ADMIN_PASSWORD` оставлены строками из `backend/.env.example`, и если логин и пароль — пара `admin` / `admin`. Имя и почта первого администратора по умолчанию: `admin` и `admin@example.com` (переменные `ADMIN_USERNAME`, `ADMIN_EMAIL`).
 
 Установите зависимости и примените миграции:
 
