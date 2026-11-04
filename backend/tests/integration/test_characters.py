@@ -63,7 +63,7 @@ async def test_delete_character_without_chats(client, db_session):
 
     assert response.status_code == 200
     assert response.json() == {"ok": True}
-    missing = await client.get(f"/characters/{character.id}")
+    missing = await client.get(f"/characters/{character.id}", headers=headers)
     assert missing.status_code == 404
 
 
@@ -123,9 +123,9 @@ async def test_delete_character_removes_conversations_and_messages(client, db_se
     assert response.status_code == 200
     assert response.json() == {"ok": True}
 
-    missing = await client.get(f"/characters/{doomed_id}")
+    missing = await client.get(f"/characters/{doomed_id}", headers=admin_headers)
     assert missing.status_code == 404
-    listed = await client.get("/characters/")
+    listed = await client.get("/characters/", headers=admin_headers)
     assert listed.status_code == 200
     assert [item["name"] for item in listed.json()] == ["Kept"]
 
@@ -155,3 +155,52 @@ async def test_delete_character_removes_conversations_and_messages(client, db_se
     assert conversation_rows.scalar() == 1
     assert message_rows.scalar() == 1
     assert doomed_rows.scalar() == 0
+
+
+@pytest.mark.asyncio
+async def test_character_catalog_requires_login_and_stays_shared(client, db_session):
+    character = Character(
+        name="Shared",
+        description="A shared card",
+        personality="Warm",
+        scenario="Library",
+        first_message="Hello",
+        avatar_url="https://example.com/a.png",
+    )
+    reader = User(
+        username="reader",
+        email="reader@example.com",
+        hashed_password=hash_password("password123"),
+        role=UserRole.GUEST,
+        is_active=True,
+    )
+    db_session.add_all([character, reader])
+    await db_session.commit()
+    await db_session.refresh(character)
+
+    anonymous_list = await client.get("/characters/")
+    anonymous_one = await client.get(f"/characters/{character.id}")
+    assert anonymous_list.status_code == 401
+    assert anonymous_one.status_code == 401
+
+    headers = await login(client, "reader")
+    listed = await client.get("/characters/", headers=headers)
+    assert listed.status_code == 200
+    assert listed.json() == [{
+        "id": character.id,
+        "name": "Shared",
+        "description": "A shared card",
+        "personality": "Warm",
+        "scenario": "Library",
+        "first_message": "Hello",
+        "avatar_url": "https://example.com/a.png",
+    }]
+
+    one = await client.get(f"/characters/{character.id}", headers=headers)
+    assert one.status_code == 200
+    assert one.json()["name"] == "Shared"
+    assert one.json()["personality"] == "Warm"
+
+    missing = await client.get("/characters/99999", headers=headers)
+    assert missing.status_code == 404
+    assert missing.json()["detail"] == "Персонаж не найден"

@@ -15,7 +15,11 @@ router = APIRouter(prefix="/characters", tags=["characters"])
 
 
 @router.get("/", response_model=list[CharacterResponse])
-async def get_characters(db: AsyncSession = Depends(get_db)):
+async def get_characters(
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(get_current_user),
+):
+    # Shared catalog: any logged-in user can read it. Anonymous clients cannot.
     result = await db.execute(select(Character))
     return result.scalars().all()
 
@@ -41,7 +45,11 @@ async def create_character(
 
 
 @router.get("/{character_id}", response_model=CharacterResponse)
-async def get_character(character_id: int, db: AsyncSession = Depends(get_db)):
+async def get_character(
+    character_id: int,
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(get_current_user),
+):
     character = await db.get(Character, character_id)
     if not character:
         raise HTTPException(status_code=404, detail="Персонаж не найден")

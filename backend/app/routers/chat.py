@@ -70,14 +70,14 @@ async def chat(
     character = None
     if data.conversation_id is not None:
         conversation = await db.get(Conversation, data.conversation_id)
-        if conversation is None:
+        # Same 404 as read, clear, and delete: a foreign id must not confirm the row exists.
+        if conversation is None or conversation.user_id != current_user.id:
+            if conversation is not None:
+                logger.warning(
+                    "Попытка доступа к чужому диалогу: user_id=%s, conversation_id=%s",
+                    current_user.id, data.conversation_id
+                )
             raise HTTPException(status_code=404, detail="Диалог не найден")
-        if conversation.user_id != current_user.id:
-            logger.warning(
-                "Попытка доступа к чужому диалогу: user_id=%s, conversation_id=%s",
-                current_user.id, data.conversation_id
-            )
-            raise HTTPException(status_code=403, detail="Нет доступа к этому диалогу")
         if conversation.character_id:
             character = await db.get(Character, conversation.character_id)
     else:

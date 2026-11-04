@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     # Single browser origin allowed to call the API with credentials.
     # Cookie sessions must not be paired with a reflected wildcard origin.
     FRONTEND_ORIGIN: str = "http://localhost:5173"
+    # Swagger, ReDoc, and the OpenAPI schema stay unmounted unless this is set.
+    ENABLE_API_DOCS: bool = False
 
     class Config:
         env_file = ".env"

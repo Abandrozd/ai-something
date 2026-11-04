@@ -151,7 +151,7 @@ async def test_first_message_returns_id_and_stores_reply(client, db_session, moc
 
 
 @pytest.mark.asyncio
-async def test_other_users_conversation_stays_forbidden(client, db_session, mock_model):
+async def test_other_users_conversation_is_not_found(client, db_session, mock_model):
     owner = await register_and_login(client, "owner", "owner@example.com")
     stranger = await register_and_login(client, "stranger", "stranger@example.com")
     character = await add_character(db_session, name="Owned")
@@ -162,14 +162,31 @@ async def test_other_users_conversation_stays_forbidden(client, db_session, mock
         headers=owner,
     )
     conversation_id = int(created.headers["x-conversation-id"])
+    calls_after_create = len(mock_model["calls"])
 
     denied = await client.post(
         "/chat/",
         json={"message": "Not mine", "conversation_id": conversation_id},
         headers=stranger,
     )
-    assert denied.status_code == 403
+    missing = await client.post(
+        "/chat/",
+        json={"message": "Nobody", "conversation_id": 424242},
+        headers=stranger,
+    )
+    assert denied.status_code == 404
+    assert denied.json()["detail"] == "Диалог не найден"
+    assert missing.status_code == denied.status_code
+    assert missing.json() == denied.json()
+    assert len(mock_model["calls"]) == calls_after_create
     assert await conversation_count(db_session) == 1
+
+    stored = await client.get(
+        f"/conversations/{conversation_id}/messages",
+        headers=owner,
+    )
+    assert stored.status_code == 200
+    assert "Not mine" not in [item["content"] for item in stored.json()]
 
 
 @pytest.mark.asyncio

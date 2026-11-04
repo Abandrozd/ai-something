@@ -53,7 +53,8 @@ uvicorn app.main:app --reload
 ```
 
 Бэкенд: http://127.0.0.1:8000  
-Документация API: http://127.0.0.1:8000/docs
+
+`/docs`, `/redoc` и `/openapi.json` выключены, пока в `backend/.env` не задано `ENABLE_API_DOCS=true`. Без этого флага схема API не отдаётся.
 
 ### 3. Фронтенд
 
