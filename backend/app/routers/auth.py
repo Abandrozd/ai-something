@@ -3,7 +3,6 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel
-from jose import jwt, JWTError
 from app.logger import get_logger
 from app.dependencies import get_db
 from app.models.user import User
@@ -11,16 +10,41 @@ from app.security import (
     verify_password,
     create_access_token,
     create_refresh_token,
-    get_current_user,
+    decode_refresh_payload,
 )
-from app.config import get_settings
 logger = get_logger(__name__)
 router = APIRouter(prefix="/auth", tags=["auth"])
-settings = get_settings()
 
 
 class RefreshRequest(BaseModel):
     refresh_token: str
+
+
+def _issue_tokens(user: User) -> dict:
+    access_token = create_access_token(
+        {"sub": str(user.id), "role": user.role.value}
+    )
+    refresh_token = create_refresh_token(
+        {"sub": str(user.id), "ver": int(user.token_version or 0)}
+    )
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+    }
+
+
+async def _user_from_refresh(token: str, db: AsyncSession) -> User:
+    payload = decode_refresh_payload(token)
+    result = await db.execute(
+        select(User).where(User.id == int(payload["sub"]), User.is_active == True)
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=401, detail="Пользователь не найден")
+    if payload.get("ver") != int(user.token_version or 0):
+        raise HTTPException(status_code=401, detail="Недействительный refresh-токен")
+    return user
 
 
 @router.post("/login")
@@ -43,61 +67,30 @@ async def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    access_token = create_access_token({"sub": str(user.id), "role": user.role.value})
-    refresh_token = create_refresh_token({"sub": str(user.id)})
     logger.info("Успешный вход: %s", user.username)
-    return {
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "token_type": "bearer",
-    }
+    return _issue_tokens(user)
 
 
 @router.post("/refresh")
 async def refresh_token(data: RefreshRequest, db: AsyncSession = Depends(get_db)):
     """Обновляет токены по refresh-токену."""
     try:
-        payload = jwt.decode(
-            data.refresh_token,
-            settings.SECRET_KEY,
-            algorithms=[settings.ALGORITHM],
-        )
-        if payload.get("type") != "refresh":
-            raise HTTPException(status_code=401, detail="Неверный тип токена")
-
-        user_id = payload.get("sub")
-        if not user_id:
-            raise HTTPException(status_code=401, detail="Неверный токен")
-
-    except JWTError:
+        user = await _user_from_refresh(data.refresh_token, db)
+    except HTTPException:
         logger.warning("Неудачная попытка обновления токена")
-        raise HTTPException(status_code=401, detail="Недействительный refresh-токен")
+        raise
 
-    result = await db.execute(
-        select(User).where(User.id == int(user_id), User.is_active == True)
-    )
-    user = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=401, detail="Пользователь не найден")
-
-    new_access = create_access_token({"sub": str(user.id), "role": user.role.value})
-    new_refresh = create_refresh_token({"sub": str(user.id)})
-    logger.info("Обновление токена для user_id=%s", user_id)
-    return {
-        "access_token": new_access,
-        "refresh_token": new_refresh,
-        "token_type": "bearer",
-    }
+    logger.info("Обновление токена для user_id=%s", user.id)
+    return _issue_tokens(user)
 
 
 @router.post("/logout")
-async def logout(current_user: User = Depends(get_current_user)):
-    """
-    Выход из системы.
-    На текущем этапе просто подтверждает выход.
-    Позже можно добавить blacklist refresh-токенов.
-    """
+async def logout(data: RefreshRequest, db: AsyncSession = Depends(get_db)):
+    """Отзывает refresh-токен: после выхода им нельзя получить новую пару."""
+    user = await _user_from_refresh(data.refresh_token, db)
+    user.token_version = int(user.token_version or 0) + 1
+    await db.commit()
     logger.info(
-        "Выход из системы: %s (id=%s)", current_user.username, current_user.id
-        )
+        "Выход из системы: %s (id=%s)", user.username, user.id
+    )
     return {"message": "Вы успешно вышли из системы"}

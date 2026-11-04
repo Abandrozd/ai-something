@@ -28,7 +28,7 @@ def create_access_token(data: dict) -> str:
     expire = datetime.now(timezone.utc) + timedelta(
         minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
         )
-    to_encode.update({"exp": expire})
+    to_encode.update({"exp": expire, "type": "access"})
     return jwt.encode(
         to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM,
         )
@@ -48,7 +48,8 @@ async def get_current_user(
             token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM],
             )
         user_id: str = payload.get("sub")
-        if user_id is None:
+        # Refresh tokens are signed with the same key, but they are not a session.
+        if user_id is None or payload.get("type") != "access":
             raise credentials_exception
     except JWTError:
         raise credentials_exception
@@ -67,10 +68,42 @@ def create_refresh_token(data: dict) -> str:
     expire = datetime.now(timezone.utc) + timedelta(
         days=settings.REFRESH_TOKEN_EXPIRE_DAYS,
         )
-    to_encode.update({"exp": expire, "type": "refresh"})
+    to_encode.update({
+        "exp": expire,
+        "type": "refresh",
+        "ver": int(data.get("ver", 0) or 0),
+        })
     return jwt.encode(
         to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM,
         )
+
+
+def decode_refresh_payload(token: str) -> dict:
+    """Validate a refresh token and return its payload.
+
+    Access tokens and garbage are rejected. Revocation is checked by the
+    caller against the user's token_version.
+    """
+    try:
+        payload = jwt.decode(
+            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM],
+            )
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Недействительный refresh-токен",
+            )
+    if payload.get("type") != "refresh":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Неверный тип токена",
+            )
+    if not payload.get("sub"):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Неверный токен",
+            )
+    return payload
 
 
 async def get_current_admin(

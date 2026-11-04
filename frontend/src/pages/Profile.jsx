@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { apiFetch, clearTokens } from "../api";
+import { apiFetch, logout } from "../api";
 import "./css/Profile.css";
 
 export default function Profile() {
@@ -19,10 +19,7 @@ export default function Profile() {
   }, []);
 
   const handleLogout = async () => {
-    try {
-      await apiFetch("/auth/logout", { method: "POST" });
-    } catch (e) {}
-    clearTokens();
+    await logout();
     navigate("/login");
   };
 
