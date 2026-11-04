@@ -1,8 +1,16 @@
+import os
 import sys
 from pathlib import Path
 
 # Сначала добавляем путь
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+# Импорт приложения читает настройки сразу. Подставляем заглушки, чтобы
+# тесты собирались без .env и без настоящего ключа OpenAI.
+os.environ.setdefault("API_KEY", "test-not-a-real-openai-key")
+os.environ.setdefault("DATABASE_URL", "postgresql+psycopg2://postgres:postgres@localhost:5432/ai_chat")
+os.environ.setdefault("SECRET_KEY", "test-secret-key")
+os.environ.setdefault("ADMIN_PASSWORD", "test-admin-password")
 
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport

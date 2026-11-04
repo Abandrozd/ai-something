@@ -21,7 +21,6 @@ export default function Register() {
           username,
           email,
           password,
-          role: "guest",
         }),
       });
 

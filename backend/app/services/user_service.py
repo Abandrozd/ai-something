@@ -2,7 +2,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from fastapi import HTTPException
 
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.schemas.user import UserCreate
 from app.security import hash_password
 from app.logger import get_logger
@@ -24,7 +24,7 @@ async def create_user(db: AsyncSession, user_data: UserCreate) -> User:
         username=user_data.username,
         email=user_data.email,
         hashed_password=hash_password(user_data.password),
-        role=user_data.role,
+        role=UserRole.GUEST,
     )
     db.add(db_user)
     await db.commit()
