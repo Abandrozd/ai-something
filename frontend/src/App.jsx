@@ -214,15 +214,21 @@ const clearHistory = async () => {
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
 
+    if (!conversationId && !selectedCharId) {
+      alert("Выберите персонажа, чтобы начать диалог");
+      return;
+    }
+
     const userMessage = { role: "user", content: input };
     setMessages((prev) => [...prev, userMessage, { role: "assistant", content: "" }]);
 
     setInput("");
     if (inputRef.current) {
-      inputRef.current.style.height = 'auto';
+      inputRef.current.style.height = "auto";
     }
 
     setIsLoading(true);
+    let pendingTurn = true;
 
     try {
       const payload = {
@@ -230,59 +236,75 @@ const clearHistory = async () => {
         conversation_id: conversationId,
         character_id: selectedCharId
       };
-const res = await apiFetch("/chat", {
-  method: 'POST',
-  body: JSON.stringify(payload)
-});
-
-if (!res.ok) {
-  if (res.status === 429) {
-    setMessages((prev) => {
-      const newMessages = [...prev];
-      const lastIndex = newMessages.length - 1;
-      newMessages[lastIndex] = {
-        role: "assistant",
-        content: "Достигнут лимит сообщений в данном тарифном плане. Повысьте план в личном кабинете."
-      };
-      return newMessages;
-    });
-    return;
-  }
-  throw new Error("Ошибка сервера");
-    }
-
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder("utf-8");
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      const textChunk = decoder.decode(value, { stream: true });
-      setMessages((prev) => {
-        const newMessages = [...prev];
-        const lastIndex = newMessages.length - 1;
-        newMessages[lastIndex] = {
-          ...newMessages[lastIndex],
-          content: newMessages[lastIndex].content + textChunk
-        };
-        return newMessages;
+      const res = await apiFetch("/chat", {
+        method: "POST",
+        body: JSON.stringify(payload)
       });
-    }
 
-    if (!conversationId) {
-      const convsRes = await apiFetch("/conversations");
-      if (convsRes.ok) {
-        const convs = await convsRes.json();
-        if (convs.length > 0) {
-          // Берём самый новый диалог
-          const newest = convs[0];
-          setConversationId(newest.id);
-          setConversations(convs);
+      if (!res.ok) {
+        if (res.status === 429) {
+          pendingTurn = false;
+          setMessages((prev) => {
+            const newMessages = [...prev];
+            const lastIndex = newMessages.length - 1;
+            newMessages[lastIndex] = {
+              role: "assistant",
+              content: "Достигнут лимит сообщений в данном тарифном плане. Повысьте план в личном кабинете."
+            };
+            return newMessages;
+          });
+          return;
         }
+        pendingTurn = false;
+        setMessages((prev) => prev.slice(0, -2));
+        setInput(userMessage.content);
+        let detail = "Ошибка при отправке сообщения";
+        try {
+          const errBody = await res.json();
+          if (typeof errBody.detail === "string") {
+            detail = errBody.detail;
+          }
+        } catch (e) {
+          // ответ без JSON
+        }
+        alert(detail);
+        return;
       }
-    }
+
+      const headerId = res.headers.get("X-Conversation-Id");
+      const resolvedId = headerId ? Number(headerId) : null;
+      if (resolvedId) {
+        setConversationId(resolvedId);
+      }
+      pendingTurn = false;
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const textChunk = decoder.decode(value, { stream: true });
+        setMessages((prev) => {
+          const newMessages = [...prev];
+          const lastIndex = newMessages.length - 1;
+          newMessages[lastIndex] = {
+            ...newMessages[lastIndex],
+            content: newMessages[lastIndex].content + textChunk
+          };
+          return newMessages;
+        });
+      }
+
+      if (!conversationId) {
+        fetchConversations();
+      }
     } catch (error) {
       console.error(error);
+      if (pendingTurn) {
+        setMessages((prev) => prev.slice(0, -2));
+        setInput(userMessage.content);
+      }
       alert("Ошибка при отправке сообщения");
     } finally {
       setIsLoading(false);

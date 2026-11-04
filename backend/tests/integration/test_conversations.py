@@ -1,34 +1,21 @@
 import pytest
 
+from app.models.character import Character
+
 
 @pytest.mark.asyncio
-async def test_clear_conversation_history(client):
-    # Создаём админа и персонажа
-    await client.post("/users/", json={
-        "username": "adminclear",
-        "email": "adminclear@example.com",
-        "password": "password123",
-        "role": "admin",
-    })
-    admin_login = await client.post("/auth/login", data={
-        "username": "adminclear",
-        "password": "password123",
-    })
-    admin_token = admin_login.json()["access_token"]
-
-    char = await client.post(
-        "/characters/",
-        json={"name": "ClearBot", "personality": "Test"},
-        headers={"Authorization": f"Bearer {admin_token}"},
-    )
-    character_id = char.json()["id"]
+async def test_clear_conversation_history(client, db_session):
+    character = Character(name="ClearBot", personality="Test")
+    db_session.add(character)
+    await db_session.commit()
+    await db_session.refresh(character)
+    character_id = character.id
 
     # Обычный пользователь
     await client.post("/users/", json={
         "username": "clearuser",
         "email": "clear@example.com",
         "password": "password123",
-        "role": "guest",
     })
     login = await client.post("/auth/login", data={
         "username": "clearuser",

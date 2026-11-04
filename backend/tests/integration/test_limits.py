@@ -1,34 +1,21 @@
 import pytest
 
+from app.models.character import Character
+
 
 @pytest.mark.asyncio
-async def test_message_limit(client):
-    # Создаём админа и персонажа
-    await client.post("/users/", json={
-        "username": "adminuser",
-        "email": "admin@example.com",
-        "password": "password123",
-        "role": "admin",
-    })
-    admin_login = await client.post("/auth/login", data={
-        "username": "adminuser",
-        "password": "password123",
-    })
-    admin_token = admin_login.json()["access_token"]
-
-    char_response = await client.post(
-        "/characters/",
-        json={"name": "TestBot", "personality": "Helpful"},
-        headers={"Authorization": f"Bearer {admin_token}"},
-    )
-    character_id = char_response.json()["id"]
+async def test_message_limit(client, db_session):
+    character = Character(name="TestBot", personality="Helpful")
+    db_session.add(character)
+    await db_session.commit()
+    await db_session.refresh(character)
+    character_id = character.id
 
     # Регистрируем пользователя
     await client.post("/users/", json={
         "username": "limituser",
         "email": "limit@example.com",
         "password": "password123",
-        "role": "guest",
     })
     login = await client.post("/auth/login", data={
         "username": "limituser",

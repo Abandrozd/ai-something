@@ -2,6 +2,8 @@ import os
 import sys
 from pathlib import Path
 
+import pytest
+
 # Сначала добавляем путь
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -49,3 +51,54 @@ async def client(db_session):
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
     app.dependency_overrides.clear()
+
+
+class _Delta:
+    def __init__(self, content):
+        self.content = content
+
+
+class _Choice:
+    def __init__(self, content):
+        self.delta = _Delta(content)
+
+
+class _Chunk:
+    def __init__(self, content):
+        self.choices = [_Choice(content)]
+
+
+@pytest.fixture(autouse=True)
+def mock_model(monkeypatch):
+    """Подменяет вызов модели, чтобы тесты чата не ходили в OpenAI."""
+    state = {
+        "chunks": ["mocked reply"],
+        "error": None,
+        "factory": None,
+        "calls": [],
+    }
+
+    async def create_chat_completion(*, model, messages, stream):
+        state["calls"].append({
+            "model": model,
+            "messages": messages,
+            "stream": stream,
+        })
+        if state["error"] is not None:
+            raise state["error"]
+        if state["factory"] is not None:
+            return state["factory"]()
+
+        chunks = list(state["chunks"])
+
+        async def stream_chunks():
+            for text in chunks:
+                yield _Chunk(text)
+
+        return stream_chunks()
+
+    monkeypatch.setattr(
+        "app.routers.chat.create_chat_completion",
+        create_chat_completion,
+    )
+    return state
