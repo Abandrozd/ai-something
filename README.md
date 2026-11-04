@@ -34,7 +34,10 @@ API_KEY=sk-ваш-ключ-openai
 MODEL=gpt-4o-mini
 DATABASE_URL=postgresql+psycopg2://postgres:пароль@localhost:5432/ai_chat
 SECRET_KEY=ваш-секретный-ключ
+ADMIN_PASSWORD=замените-на-свой-пароль
 ```
+
+`API_KEY`, `DATABASE_URL`, `SECRET_KEY` и `ADMIN_PASSWORD` нужны уже при импорте приложения. Пароль администратора по умолчанию не задаётся. Если логин и пароль — пара `admin` / `admin`, процесс не запускается. Имя и почта первого администратора по умолчанию: `admin` и `admin@example.com` (переменные `ADMIN_USERNAME`, `ADMIN_EMAIL`).
 
 Установите зависимости и примените миграции:
 
