@@ -28,7 +28,11 @@ def create_access_token(data: dict) -> str:
     expire = datetime.now(timezone.utc) + timedelta(
         minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
         )
-    to_encode.update({"exp": expire, "type": "access"})
+    to_encode.update({
+        "exp": expire,
+        "type": "access",
+        "ver": int(data.get("ver", 0) or 0),
+        })
     return jwt.encode(
         to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM,
         )
@@ -59,6 +63,10 @@ async def get_current_user(
         )
     user = result.scalar_one_or_none()
     if user is None:
+        raise credentials_exception
+    # token_version moves on logout, password change, and refresh rotation.
+    # An access token from before that must not keep working until its exp.
+    if payload.get("ver") != int(user.token_version or 0):
         raise credentials_exception
     return user
 

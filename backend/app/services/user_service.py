@@ -49,5 +49,6 @@ async def change_password(
         raise HTTPException(status_code=400, detail="Пароль должен быть не короче 6 символов")
 
     user.hashed_password = hash_password(new_password)
+    user.token_version = int(user.token_version or 0) + 1
     await db.commit()
     logger.info("Пользователь %s сменил пароль", user.username)

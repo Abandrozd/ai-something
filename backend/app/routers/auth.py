@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, update
 from pydantic import BaseModel
 from app.logger import get_logger
 from app.dependencies import get_db
@@ -21,11 +21,12 @@ class RefreshRequest(BaseModel):
 
 
 def _issue_tokens(user: User) -> dict:
+    version = int(user.token_version or 0)
     access_token = create_access_token(
-        {"sub": str(user.id), "role": user.role.value}
+        {"sub": str(user.id), "role": user.role.value, "ver": version}
     )
     refresh_token = create_refresh_token(
-        {"sub": str(user.id), "ver": int(user.token_version or 0)}
+        {"sub": str(user.id), "ver": version}
     )
     return {
         "access_token": access_token,
@@ -45,6 +46,29 @@ async def _user_from_refresh(token: str, db: AsyncSession) -> User:
     if payload.get("ver") != int(user.token_version or 0):
         raise HTTPException(status_code=401, detail="Недействительный refresh-токен")
     return user
+
+
+async def _rotate_session(user: User, db: AsyncSession) -> None:
+    """Bump the session version once, so this refresh cannot be replayed.
+
+    A second presentation of the same refresh loses the compare-and-swap and
+    does not mint another pair. Access tokens carry the same version, so the
+    pair that was just replaced stops matching too.
+    """
+    expected = int(user.token_version or 0)
+    result = await db.execute(
+        update(User)
+        .where(User.id == user.id, User.token_version == expected)
+        .values(token_version=expected + 1)
+        .returning(User.token_version)
+    )
+    new_version = result.scalar_one_or_none()
+    if new_version is None:
+        await db.rollback()
+        raise HTTPException(status_code=401, detail="Недействительный refresh-токен")
+    db.expire(user)
+    await db.commit()
+    await db.refresh(user)
 
 
 @router.post("/login")
@@ -73,9 +97,10 @@ async def login(
 
 @router.post("/refresh")
 async def refresh_token(data: RefreshRequest, db: AsyncSession = Depends(get_db)):
-    """Обновляет токены по refresh-токену."""
+    """Обновляет пару и отзывает предыдущий refresh."""
     try:
         user = await _user_from_refresh(data.refresh_token, db)
+        await _rotate_session(user, db)
     except HTTPException:
         logger.warning("Неудачная попытка обновления токена")
         raise
@@ -86,7 +111,7 @@ async def refresh_token(data: RefreshRequest, db: AsyncSession = Depends(get_db)
 
 @router.post("/logout")
 async def logout(data: RefreshRequest, db: AsyncSession = Depends(get_db)):
-    """Отзывает refresh-токен: после выхода им нельзя получить новую пару."""
+    """Отзывает сессию: ранее выданные access и refresh перестают подходить."""
     user = await _user_from_refresh(data.refresh_token, db)
     user.token_version = int(user.token_version or 0) + 1
     await db.commit()

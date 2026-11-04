@@ -32,9 +32,10 @@ def _decode(token: str) -> dict:
 
 
 def test_access_token_is_marked_as_access():
-    payload = _decode(create_access_token({"sub": "1", "role": "guest"}))
+    payload = _decode(create_access_token({"sub": "1", "role": "guest", "ver": 3}))
     assert payload["type"] == "access"
     assert payload["sub"] == "1"
+    assert payload["ver"] == 3
 
 
 def test_refresh_token_carries_type_and_version():
