@@ -20,7 +20,21 @@ async def _register_and_login(client, username="refreshuser"):
         "password": "password123",
     })
     assert login.status_code == 200
-    return registered.json(), login.json()
+    return registered.json(), _session_tokens(login)
+
+
+def _session_tokens(response) -> dict:
+    body = response.text
+    payload = response.json()
+    access = response.cookies.get("access_token")
+    refresh = response.cookies.get("refresh_token")
+    assert access, response.headers
+    assert refresh, response.headers
+    assert "access_token" not in payload
+    assert "refresh_token" not in payload
+    assert access not in body
+    assert refresh not in body
+    return {"access_token": access, "refresh_token": refresh}
 
 
 def _encode(claims: dict) -> str:
@@ -36,7 +50,7 @@ async def test_refresh_token(client):
         "refresh_token": tokens["refresh_token"],
     })
     assert response.status_code == 200
-    new_data = response.json()
+    new_data = _session_tokens(response)
     assert "access_token" in new_data
     assert "refresh_token" in new_data
 
@@ -101,7 +115,7 @@ async def test_logout_revokes_refresh_token(client):
         "refresh_token": tokens["refresh_token"],
     })
     assert rotated.status_code == 200
-    latest = rotated.json()["refresh_token"]
+    latest = _session_tokens(rotated)["refresh_token"]
 
     logout = await client.post("/auth/logout", json={"refresh_token": latest})
     assert logout.status_code == 200
@@ -119,7 +133,7 @@ async def test_logout_revokes_refresh_token(client):
     })
     assert login.status_code == 200
     again = await client.post("/auth/refresh", json={
-        "refresh_token": login.json()["refresh_token"],
+        "refresh_token": _session_tokens(login)["refresh_token"],
     })
     assert again.status_code == 200
 
@@ -164,7 +178,7 @@ async def test_logout_revokes_access_token(client):
     })
     assert login.status_code == 200
     fresh = await client.get("/users/me", headers={
-        "Authorization": f"Bearer {login.json()['access_token']}",
+        "Authorization": f"Bearer {_session_tokens(login)['access_token']}",
     })
     assert fresh.status_code == 200
     stale = await client.get("/users/me", headers={
@@ -183,7 +197,7 @@ async def test_refresh_rotation_revokes_previous_refresh(client):
         "refresh_token": previous_refresh,
     })
     assert rotated.status_code == 200
-    current = rotated.json()
+    current = _session_tokens(rotated)
 
     reused = await client.post("/auth/refresh", json={
         "refresh_token": previous_refresh,
@@ -204,7 +218,7 @@ async def test_refresh_rotation_revokes_previous_refresh(client):
         "refresh_token": current["refresh_token"],
     })
     assert rotated_again.status_code == 200
-    latest = rotated_again.json()
+    latest = _session_tokens(rotated_again)
 
     stolen = await client.post("/auth/refresh", json={
         "refresh_token": current["refresh_token"],
@@ -250,7 +264,7 @@ async def test_change_password_revokes_access_and_refresh(client):
     })
     assert new_login.status_code == 200
     me = await client.get("/users/me", headers={
-        "Authorization": f"Bearer {new_login.json()['access_token']}",
+        "Authorization": f"Bearer {_session_tokens(new_login)['access_token']}",
     })
     assert me.status_code == 200
 

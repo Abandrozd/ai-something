@@ -21,7 +21,7 @@ async def test_create_character_forbidden(client):
         "username": "noadmin",
         "password": "password123",
     })
-    token = login.json()["access_token"]
+    token = login.cookies["access_token"]
 
     response = await client.post(
         "/characters/",
@@ -41,7 +41,7 @@ async def login(client, username, password="password123"):
         "password": password,
     })
     assert response.status_code == 200, response.text
-    return {"Authorization": f"Bearer {response.json()['access_token']}"}
+    return {"Authorization": f"Bearer {response.cookies['access_token']}"}
 
 
 @pytest.mark.asyncio

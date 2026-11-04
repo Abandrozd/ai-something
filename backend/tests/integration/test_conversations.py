@@ -21,7 +21,7 @@ async def test_clear_conversation_history(client, db_session):
         "username": "clearuser",
         "password": "password123",
     })
-    token = login.json()["access_token"]
+    token = login.cookies["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
 
     # Отправляем сообщение

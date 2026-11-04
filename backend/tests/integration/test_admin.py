@@ -14,7 +14,7 @@ async def test_admin_access_forbidden(client):
         "username": "regular",
         "password": "password123",
     })
-    token = login.json()["access_token"]
+    token = login.cookies["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
 
     # Пытаемся зайти в админку

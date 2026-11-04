@@ -10,21 +10,7 @@ globalThis.localStorage = {
 };
 globalThis.window = { location: { href: "", pathname: "/profile" } };
 
-const { apiFetch, clearTokens, getToken, logout, setTokens } = await import("./api.js");
-
-function b64url(value) {
-  const json = typeof value === "string" ? value : JSON.stringify(value);
-  return btoa(json).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
-}
-
-function makeJwt(payload) {
-  return `${b64url({ alg: "HS256", typ: "JWT" })}.${b64url(payload)}.sig`;
-}
-
-function accessToken(expired) {
-  const exp = Math.floor(Date.now() / 1000) + (expired ? -60 : 3600);
-  return makeJwt({ sub: "1", type: "access", exp });
-}
+const { apiFetch, clearStoredTokens, logout } = await import("./api.js");
 
 function jsonResponse(status, body) {
   return {
@@ -38,11 +24,11 @@ beforeEach(() => {
   memory.clear();
   globalThis.window.location.href = "";
   globalThis.window.location.pathname = "/profile";
-  clearTokens();
 });
 
-test("returns a successful response without calling refresh", async () => {
-  setTokens(accessToken(false), "refresh-1");
+test("sends cookies and does not attach a leftover localStorage token", async () => {
+  memory.set("access_token", "stolen-access");
+  memory.set("refresh_token", "stolen-refresh");
   const calls = [];
   globalThis.fetch = async (url, options) => {
     calls.push({ url, options });
@@ -52,14 +38,15 @@ test("returns a successful response without calling refresh", async () => {
   const res = await apiFetch("/users/me");
   assert.equal(res.status, 200);
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].url, "http://127.0.0.1:8000/users/me");
-  assert.equal(calls[0].options.headers.Authorization, `Bearer ${getToken()}`);
+  assert.equal(calls[0].url, "/api/users/me");
+  assert.equal(calls[0].options.credentials, "include");
+  assert.equal(calls[0].options.headers.Authorization, undefined);
+  assert.equal(memory.has("access_token"), false);
+  assert.equal(memory.has("refresh_token"), false);
 });
 
 test("chat error statuses are not treated as an expired session", async () => {
   for (const status of [400, 404, 502]) {
-    memory.clear();
-    setTokens(accessToken(false), "refresh-1");
     const calls = [];
     globalThis.fetch = async (url, options) => {
       calls.push({ url, options });
@@ -69,40 +56,22 @@ test("chat error statuses are not treated as an expired session", async () => {
     const res = await apiFetch("/chat", { method: "POST", body: "{\"message\":\"hi\"}" });
     assert.equal(res.status, status);
     assert.equal(calls.length, 1);
-    assert.equal(getToken() !== null, true);
-    assert.equal(globalThis.localStorage.getItem("refresh_token"), "refresh-1");
+    assert.equal(calls[0].options.credentials, "include");
+    assert.equal(calls[0].options.headers.Authorization, undefined);
   }
 });
 
-test("refreshes an expired access token before the request", async () => {
-  const expired = accessToken(true);
-  setTokens(expired, "refresh-1");
+test("retries a rejected request once after a cookie refresh", async () => {
   const calls = [];
   globalThis.fetch = async (url, options) => {
-    calls.push({ url, body: options.body, authorization: options.headers.Authorization });
+    calls.push({
+      url,
+      credentials: options.credentials,
+      authorization: options.headers?.Authorization,
+      body: options.body,
+    });
     if (url.endsWith("/auth/refresh")) {
-      return jsonResponse(200, { access_token: "new-access", refresh_token: "refresh-2" });
-    }
-    return jsonResponse(200, { ok: true });
-  };
-
-  const res = await apiFetch("/users/me");
-  assert.equal(res.status, 200);
-  assert.equal(calls.length, 2);
-  assert.equal(calls[0].url.endsWith("/auth/refresh"), true);
-  assert.equal(JSON.parse(calls[0].body).refresh_token, "refresh-1");
-  assert.equal(calls[1].authorization, "Bearer new-access");
-  assert.equal(getToken(), "new-access");
-  assert.equal(globalThis.localStorage.getItem("refresh_token"), "refresh-2");
-});
-
-test("retries a rejected request once after refresh", async () => {
-  setTokens(accessToken(false), "refresh-1");
-  const calls = [];
-  globalThis.fetch = async (url, options) => {
-    calls.push({ url, authorization: options.headers?.Authorization });
-    if (url.endsWith("/auth/refresh")) {
-      return jsonResponse(200, { access_token: "new-access", refresh_token: "refresh-2" });
+      return jsonResponse(200, { token_type: "bearer" });
     }
     if (calls.filter((call) => call.url.endsWith("/users/me")).length === 1) {
       return jsonResponse(401, { detail: "nope" });
@@ -114,17 +83,17 @@ test("retries a rejected request once after refresh", async () => {
   assert.equal(res.status, 200);
   assert.deepEqual(
     calls.map((call) => call.url),
-    [
-      "http://127.0.0.1:8000/users/me",
-      "http://127.0.0.1:8000/auth/refresh",
-      "http://127.0.0.1:8000/users/me",
-    ],
+    ["/api/users/me", "/api/auth/refresh", "/api/users/me"],
   );
-  assert.equal(calls[2].authorization, "Bearer new-access");
+  assert.equal(calls[1].credentials, "include");
+  assert.equal(calls[1].body, "{}");
+  assert.equal(calls[1].body.includes("refresh_token"), false);
+  assert.equal(calls[2].authorization, undefined);
+  assert.equal(calls[2].credentials, "include");
 });
 
 test("sends the user to login when refresh fails", async () => {
-  setTokens(accessToken(false), "refresh-1");
+  memory.set("access_token", "leftover");
   const calls = [];
   globalThis.fetch = async (url) => {
     calls.push(url);
@@ -132,23 +101,18 @@ test("sends the user to login when refresh fails", async () => {
   };
 
   await assert.rejects(apiFetch("/users/me"), /Unauthorized/);
-  assert.deepEqual(calls, [
-    "http://127.0.0.1:8000/users/me",
-    "http://127.0.0.1:8000/auth/refresh",
-  ]);
-  assert.equal(getToken(), null);
-  assert.equal(globalThis.localStorage.getItem("refresh_token"), null);
+  assert.deepEqual(calls, ["/api/users/me", "/api/auth/refresh"]);
+  assert.equal(memory.has("access_token"), false);
   assert.equal(globalThis.window.location.href, "/login");
 });
 
-test("does not retry forever when the new access token is also rejected", async () => {
-  setTokens(accessToken(false), "refresh-1");
+test("does not retry forever when the new session is also rejected", async () => {
   let refreshCalls = 0;
   let meCalls = 0;
   globalThis.fetch = async (url) => {
     if (url.endsWith("/auth/refresh")) {
       refreshCalls += 1;
-      return jsonResponse(200, { access_token: "new-access", refresh_token: "refresh-2" });
+      return jsonResponse(200, { token_type: "bearer" });
     }
     meCalls += 1;
     return jsonResponse(401, { detail: "nope" });
@@ -158,22 +122,21 @@ test("does not retry forever when the new access token is also rejected", async 
   assert.equal(meCalls, 2);
   assert.equal(refreshCalls, 1);
   assert.equal(globalThis.window.location.href, "/login");
-  assert.equal(getToken(), null);
 });
 
 test("one refresh serves concurrent 401s", async () => {
-  setTokens(accessToken(false), "refresh-1");
   let refreshCalls = 0;
+  let phase = "stale";
   globalThis.fetch = async (url) => {
     if (url.endsWith("/auth/refresh")) {
       refreshCalls += 1;
-      return jsonResponse(200, { access_token: "new-access", refresh_token: "refresh-2" });
+      phase = "fresh";
+      return jsonResponse(200, { token_type: "bearer" });
     }
-    const token = globalThis.localStorage.getItem("access_token");
-    if (token === "new-access") {
-      return jsonResponse(200, { ok: true });
+    if (phase === "stale") {
+      return jsonResponse(401, { detail: "nope" });
     }
-    return jsonResponse(401, { detail: "nope" });
+    return jsonResponse(200, { ok: true });
   };
 
   const [first, second] = await Promise.all([
@@ -185,30 +148,49 @@ test("one refresh serves concurrent 401s", async () => {
   assert.equal(refreshCalls, 1);
 });
 
-test("logout posts the refresh token and drops both tokens", async () => {
-  setTokens(accessToken(true), "refresh-1");
+test("logout posts the cookie session and drops leftover token keys", async () => {
+  memory.set("access_token", "leftover-access");
+  memory.set("refresh_token", "leftover-refresh");
   const calls = [];
   globalThis.fetch = async (url, options) => {
-    calls.push({ url, body: options.body, authorization: options.headers.Authorization });
+    calls.push({
+      url,
+      body: options.body,
+      authorization: options.headers.Authorization,
+      credentials: options.credentials,
+    });
     return jsonResponse(200, { message: "Вы успешно вышли из системы" });
   };
 
   await logout();
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].url, "http://127.0.0.1:8000/auth/logout");
-  assert.equal(JSON.parse(calls[0].body).refresh_token, "refresh-1");
+  assert.equal(calls[0].url, "/api/auth/logout");
+  assert.equal(calls[0].credentials, "include");
+  assert.equal(calls[0].body, "{}");
+  assert.equal(calls[0].body.includes("refresh_token"), false);
   assert.equal(calls[0].authorization, undefined);
-  assert.equal(getToken(), null);
-  assert.equal(globalThis.localStorage.getItem("refresh_token"), null);
+  assert.equal(memory.has("access_token"), false);
+  assert.equal(memory.has("refresh_token"), false);
 });
 
-test("logout drops tokens when the revoke request fails", async () => {
-  setTokens(accessToken(false), "refresh-1");
+test("logout drops leftover keys when the revoke request fails", async () => {
+  memory.set("access_token", "leftover-access");
+  memory.set("refresh_token", "leftover-refresh");
   globalThis.fetch = async () => {
     throw new Error("offline");
   };
 
   await logout();
-  assert.equal(getToken(), null);
-  assert.equal(globalThis.localStorage.getItem("refresh_token"), null);
+  assert.equal(memory.has("access_token"), false);
+  assert.equal(memory.has("refresh_token"), false);
+});
+
+test("clearStoredTokens removes both leftover keys", () => {
+  memory.set("access_token", "a");
+  memory.set("refresh_token", "r");
+  memory.set("other", "keep");
+  clearStoredTokens();
+  assert.equal(memory.has("access_token"), false);
+  assert.equal(memory.has("refresh_token"), false);
+  assert.equal(memory.get("other"), "keep");
 });

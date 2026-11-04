@@ -1,17 +1,18 @@
 from datetime import datetime, timedelta, timezone
 from pwdlib import PasswordHash
 from jose import jwt, JWTError
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.user import UserRole
 from app.config import get_settings
+from app.cookies import ACCESS_COOKIE
 from app.dependencies import get_db
 from app.models.user import User
 
 password_hash = PasswordHash.recommended()
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login", auto_error=False)
 settings = get_settings()
 
 
@@ -39,7 +40,8 @@ def create_access_token(data: dict) -> str:
 
 
 async def get_current_user(
-        token: str = Depends(oauth2_scheme),
+        request: Request,
+        header_token: str | None = Depends(oauth2_scheme),
         db: AsyncSession = Depends(get_db),
         ):
     credentials_exception = HTTPException(
@@ -47,6 +49,11 @@ async def get_current_user(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
         )
+    # An explicit Authorization header is the token under test. The httpOnly
+    # cookie is the browser session and is used only when no header is sent.
+    token = header_token or request.cookies.get(ACCESS_COOKIE)
+    if not token:
+        raise credentials_exception
     try:
         payload = jwt.decode(
             token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM],

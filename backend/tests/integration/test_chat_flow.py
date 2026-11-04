@@ -18,7 +18,7 @@ async def register_and_login(client, username, email):
         "password": "password123",
     })
     assert login.status_code == 200, login.text
-    return {"Authorization": f"Bearer {login.json()['access_token']}"}
+    return {"Authorization": f"Bearer {login.cookies['access_token']}"}
 
 
 async def add_character(db_session, **extra):

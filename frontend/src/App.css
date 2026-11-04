@@ -296,6 +296,10 @@ body {
   color: white;
 }
 
+.sidebar-profile {
+  padding: 10px 16px;
+}
+
 .profile-link {
   display: inline-block;
   padding: 6px 14px;

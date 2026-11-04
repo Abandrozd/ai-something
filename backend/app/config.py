@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     ADMIN_USERNAME: str = "admin"
     ADMIN_EMAIL: str = "admin@example.com"
     ADMIN_PASSWORD: str
+    # Single browser origin allowed to call the API with credentials.
+    # Cookie sessions must not be paired with a reflected wildcard origin.
+    FRONTEND_ORIGIN: str = "http://localhost:5173"
 
     class Config:
         env_file = ".env"
@@ -27,6 +30,17 @@ class Settings(BaseSettings):
                 "Refusing to start with the admin/admin credentials. "
                 "Set ADMIN_PASSWORD to a value other than admin."
             )
+        return self
+
+    @model_validator(mode="after")
+    def reject_wildcard_frontend_origin(self):
+        origin = (self.FRONTEND_ORIGIN or "").strip()
+        if not origin or origin == "*":
+            raise ValueError(
+                "FRONTEND_ORIGIN must be one concrete origin. "
+                "A wildcard plus credentials would expose cookie sessions."
+            )
+        self.FRONTEND_ORIGIN = origin
         return self
 
 

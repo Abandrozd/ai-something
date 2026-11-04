@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { setTokens } from "../api";
+import { API_URL, clearStoredTokens } from "../api";
 import "./css/Login.css";
 
 export default function Login() {
@@ -18,15 +18,15 @@ export default function Login() {
     formData.append("password", password);
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/auth/login", {
+      const res = await fetch(`${API_URL}/auth/login`, {
         method: "POST",
+        credentials: "include",
         body: formData,
       });
 
       if (!res.ok) throw new Error("Неверный логин или пароль");
 
-      const data = await res.json();
-      setTokens(data.access_token, data.refresh_token);
+      clearStoredTokens();
       navigate("/");
     } catch (err) {
       setError(err.message);

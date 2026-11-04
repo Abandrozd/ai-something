@@ -21,7 +21,7 @@ async def test_message_limit(client, db_session):
         "username": "limituser",
         "password": "password123",
     })
-    token = login.json()["access_token"]
+    token = login.cookies["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
 
     # Первое сообщение — создаёт диалог

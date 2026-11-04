@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 from pydantic import BaseModel
 from app.logger import get_logger
+from app.cookies import REFRESH_COOKIE, clear_auth_cookies, set_auth_cookies
 from app.dependencies import get_db
 from app.models.user import User
 from app.security import (
@@ -17,7 +18,28 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 class RefreshRequest(BaseModel):
-    refresh_token: str
+    refresh_token: str | None = None
+
+
+def _presented_refresh_token(request: Request, data: RefreshRequest | None) -> str:
+    """Body token wins when a client sends one. Browsers send the cookie."""
+    if data is not None and data.refresh_token:
+        return data.refresh_token
+    cookie = request.cookies.get(REFRESH_COOKIE)
+    if cookie:
+        return cookie
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Недействительный refresh-токен",
+    )
+
+
+def _store_session(response: Response, request: Request, user: User) -> dict:
+    issued = _issue_tokens(user)
+    set_auth_cookies(
+        response, request, issued["access_token"], issued["refresh_token"],
+    )
+    return {"token_type": "bearer"}
 
 
 def _issue_tokens(user: User) -> dict:
@@ -73,10 +95,12 @@ async def _rotate_session(user: User, db: AsyncSession) -> None:
 
 @router.post("/login")
 async def login(
+    request: Request,
+    response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_db),
 ):
-    """Логин. Возвращает access + refresh токены."""
+    """Логин. Кладёт access и refresh в httpOnly cookie, без тела с токенами."""
     logger.info("Попытка входа: %s", form_data.username)
     result = await db.execute(
         select(User).where(User.username == form_data.username, User.is_active == True)
@@ -92,29 +116,40 @@ async def login(
         )
 
     logger.info("Успешный вход: %s", user.username)
-    return _issue_tokens(user)
+    return _store_session(response, request, user)
 
 
 @router.post("/refresh")
-async def refresh_token(data: RefreshRequest, db: AsyncSession = Depends(get_db)):
+async def refresh_token(
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+    data: RefreshRequest | None = None,
+):
     """Обновляет пару и отзывает предыдущий refresh."""
     try:
-        user = await _user_from_refresh(data.refresh_token, db)
+        user = await _user_from_refresh(_presented_refresh_token(request, data), db)
         await _rotate_session(user, db)
     except HTTPException:
         logger.warning("Неудачная попытка обновления токена")
         raise
 
     logger.info("Обновление токена для user_id=%s", user.id)
-    return _issue_tokens(user)
+    return _store_session(response, request, user)
 
 
 @router.post("/logout")
-async def logout(data: RefreshRequest, db: AsyncSession = Depends(get_db)):
+async def logout(
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+    data: RefreshRequest | None = None,
+):
     """Отзывает сессию: ранее выданные access и refresh перестают подходить."""
-    user = await _user_from_refresh(data.refresh_token, db)
+    user = await _user_from_refresh(_presented_refresh_token(request, data), db)
     user.token_version = int(user.token_version or 0) + 1
     await db.commit()
+    clear_auth_cookies(response, request)
     logger.info(
         "Выход из системы: %s (id=%s)", user.username, user.id
     )

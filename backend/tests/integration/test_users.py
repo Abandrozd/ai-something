@@ -16,7 +16,7 @@ async def test_get_me(client):
         "username": "meuser",
         "password": "password123",
     })
-    token = login.json()["access_token"]
+    token = login.cookies["access_token"]
 
     # Получение профиля
     response = await client.get("/users/me", headers={
@@ -47,7 +47,7 @@ async def test_change_password_success(client):
         "username": "pwduser",
         "password": "oldpassword",
     })
-    token = login.json()["access_token"]
+    token = login.cookies["access_token"]
 
     response = await client.post(
         "/users/change-password",
@@ -70,7 +70,7 @@ async def test_change_password_wrong_old(client):
         "username": "pwduser2",
         "password": "oldpassword",
     })
-    token = login.json()["access_token"]
+    token = login.cookies["access_token"]
 
     response = await client.post(
         "/users/change-password",

@@ -54,7 +54,7 @@ function App() {
 
   const fetchCharacters = async () => {
     try {
-      const res = await apiFetch("/characters");
+      const res = await apiFetch("/characters/");
       const data = await res.json();
       setCharacters(data);
     } catch (e) { console.error(e); }
@@ -62,7 +62,7 @@ function App() {
 
   const fetchConversations = async () => {
     try {
-      const res = await apiFetch("/conversations");
+      const res = await apiFetch("/conversations/");
       const data = await res.json();
       setConversations(data);
     } catch (e) { console.error(e); }
@@ -186,7 +186,7 @@ function App() {
   const handleCreateCharacter = async (e) => {
     e.preventDefault();
     try {
-      const res = await apiFetch("/characters", {
+      const res = await apiFetch("/characters/", {
         method: 'POST',
         body: JSON.stringify(formData)
       });
@@ -229,7 +229,7 @@ function App() {
         conversation_id: conversationId,
         character_id: selectedCharId
       };
-      const res = await apiFetch("/chat", {
+      const res = await apiFetch("/chat/", {
         method: "POST",
         body: JSON.stringify(payload)
       });
@@ -316,7 +316,7 @@ function App() {
   return (
     <div className="app">
       <div className="sidebar">
-        <div style={{ padding: "10px 16px" }}>
+        <div className="sidebar-profile">
           <a href="/profile" className="profile-link">Профиль</a>
         </div>
 

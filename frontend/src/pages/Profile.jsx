@@ -119,7 +119,7 @@ export default function Profile() {
         </button>
 
         {user.role === "admin" && (
-          <a href="/admin" className="profile-back" style={{ display: "block", marginTop: "10px" }}>
+          <a href="/admin" className="profile-back profile-admin-link">
             Админ-панель
           </a>
         )}

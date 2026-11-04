@@ -20,7 +20,7 @@ async def test_register_ignores_client_role(client, role):
         "password": "password123",
     })
     assert login.status_code == 200
-    token = login.json()["access_token"]
+    token = login.cookies["access_token"]
 
     admin_response = await client.get(
         "/admin/users",
