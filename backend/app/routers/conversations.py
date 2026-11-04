@@ -6,7 +6,9 @@ from app.models.user import User
 from app.dependencies import get_db
 from app.models.conversation import Conversation
 from app.models.message import Message
+from app.models.character import Character
 from app.schemas.conversation import ConversationResponse
+from app.services.character_prompt import opening_greeting
 from app.logger import get_logger
 
 logger = get_logger(__name__)
@@ -81,6 +83,16 @@ async def clear_conversation_messages(
     await db.execute(
         Message.__table__.delete().where(Message.conversation_id == conversation_id)
     )
+    character = None
+    if conversation.character_id:
+        character = await db.get(Character, conversation.character_id)
+    greeting = opening_greeting(character)
+    if greeting:
+        db.add(Message(
+            conversation_id=conversation.id,
+            role="assistant",
+            content=greeting,
+        ))
     await db.commit()
 
     logger.info("Пользователь %s очистил историю диалога %s", current_user.username, conversation_id)

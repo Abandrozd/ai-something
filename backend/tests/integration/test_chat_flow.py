@@ -121,16 +121,20 @@ async def test_first_message_returns_id_and_stores_reply(client, db_session, moc
     )
     assert stored.status_code == 200
     assert stored.json() == [
+        {"role": "assistant", "content": "Hi there"},
         {"role": "user", "content": "Hi"},
         {"role": "assistant", "content": "Hello there"},
     ]
 
-    system = mock_model["calls"][0]["messages"][0]
-    assert system["role"] == "system"
-    assert system["content"] == "Ты — Lira. Calm"
-    assert "long description" not in system["content"]
-    assert "Rainy city" not in system["content"]
-    assert "Hi there" not in system["content"]
+    sent = mock_model["calls"][0]["messages"]
+    assert sent[0] == {
+        "role": "system",
+        "content": "Ты — Lira. Calm\nОписание: A long description\nСценарий: Rainy city",
+    }
+    assert sent[1:] == [
+        {"role": "assistant", "content": "Hi there"},
+        {"role": "user", "content": "Hi"},
+    ]
 
     follow = await client.post(
         "/chat/",
@@ -253,6 +257,147 @@ async def test_model_failure_is_not_saved_and_does_not_spend_limit(
     )
     assert blocked.status_code == 429
     assert await conversation_count(db_session) == 1
+
+
+@pytest.mark.asyncio
+async def test_prompt_without_optional_fields_stays_name_and_personality(
+    client, db_session, mock_model
+):
+    headers = await register_and_login(client, "plainuser", "plain@example.com")
+    character = await add_character(db_session, name="Plain", personality="Quiet")
+    mock_model["chunks"] = ["ok"]
+
+    response = await client.post(
+        "/chat/",
+        json={"message": "Hi", "character_id": character.id},
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.headers["x-conversation-id"]
+    assert mock_model["calls"][0]["messages"] == [
+        {"role": "system", "content": "Ты — Plain. Quiet"},
+        {"role": "user", "content": "Hi"},
+    ]
+
+
+@pytest.mark.asyncio
+async def test_greeting_is_stored_sent_and_restored_on_clear(
+    client, db_session, mock_model
+):
+    headers = await register_and_login(client, "greetuser", "greet@example.com")
+    character = await add_character(
+        db_session,
+        name="Nova",
+        personality="Witty",
+        description="A navigator",
+        scenario="On a ship",
+        first_message="Welcome aboard",
+    )
+    mock_model["chunks"] = ["Aye"]
+
+    opened = await client.post(
+        "/chat/",
+        json={"message": "Hello", "character_id": character.id},
+        headers=headers,
+    )
+    assert opened.status_code == 200, opened.text
+    conversation_id = int(opened.headers["x-conversation-id"])
+
+    sent = mock_model["calls"][0]["messages"]
+    assert sent[0]["content"] == (
+        "Ты — Nova. Witty\nОписание: A navigator\nСценарий: On a ship"
+    )
+    assert sent[1:] == [
+        {"role": "assistant", "content": "Welcome aboard"},
+        {"role": "user", "content": "Hello"},
+    ]
+
+    stored = await client.get(
+        f"/conversations/{conversation_id}/messages",
+        headers=headers,
+    )
+    assert stored.json() == [
+        {"role": "assistant", "content": "Welcome aboard"},
+        {"role": "user", "content": "Hello"},
+        {"role": "assistant", "content": "Aye"},
+    ]
+
+    cleared = await client.delete(
+        f"/conversations/{conversation_id}/messages",
+        headers=headers,
+    )
+    assert cleared.status_code == 200
+    assert cleared.json() == {"ok": True}
+
+    after_clear = await client.get(
+        f"/conversations/{conversation_id}/messages",
+        headers=headers,
+    )
+    assert after_clear.status_code == 200
+    assert after_clear.json() == [
+        {"role": "assistant", "content": "Welcome aboard"},
+    ]
+
+    mock_model["chunks"] = ["Still here"]
+    again = await client.post(
+        "/chat/",
+        json={"message": "You there?", "conversation_id": conversation_id},
+        headers=headers,
+    )
+    assert again.status_code == 200, again.text
+    assert int(again.headers["x-conversation-id"]) == conversation_id
+    follow = mock_model["calls"][1]["messages"]
+    assert follow[0]["role"] == "system"
+    assert "A navigator" in follow[0]["content"]
+    assert "On a ship" in follow[0]["content"]
+    assert follow[1:] == [
+        {"role": "assistant", "content": "Welcome aboard"},
+        {"role": "user", "content": "You there?"},
+    ]
+
+    reloaded = await client.get(
+        f"/conversations/{conversation_id}/messages",
+        headers=headers,
+    )
+    assert reloaded.json() == [
+        {"role": "assistant", "content": "Welcome aboard"},
+        {"role": "user", "content": "You there?"},
+        {"role": "assistant", "content": "Still here"},
+    ]
+    greetings = [
+        item for item in reloaded.json()
+        if item["content"] == "Welcome aboard"
+    ]
+    assert len(greetings) == 1
+
+
+@pytest.mark.asyncio
+async def test_failed_turn_does_not_persist_greeting(client, db_session, mock_model):
+    headers = await register_and_login(client, "greetfail", "greetfail@example.com")
+    character = await add_character(
+        db_session,
+        first_message="Hello from the void",
+        description="Unused",
+        scenario="Unused scene",
+    )
+    mock_model["error"] = RuntimeError("openai down")
+
+    response = await client.post(
+        "/chat/",
+        json={"message": "Hello", "character_id": character.id},
+        headers=headers,
+    )
+
+    assert response.status_code == 502
+    assert response.json()["detail"] == "Произошла ошибка при генерации ответа."
+    assert await conversation_count(db_session) == 0
+    stored_messages = await db_session.execute(select(func.count(Message.id)))
+    assert stored_messages.scalar() == 0
+    assert mock_model["calls"][0]["messages"][1] == {
+        "role": "assistant",
+        "content": "Hello from the void",
+    }
 
 
 @pytest.mark.asyncio

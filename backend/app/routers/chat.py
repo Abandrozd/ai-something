@@ -13,6 +13,7 @@ from app.config import get_settings
 from app.security import get_current_user
 from app.logger import get_logger
 from app.limits import get_message_limit
+from app.services.character_prompt import build_system_prompt, opening_greeting
 from openai import AsyncOpenAI
 
 logger = get_logger(__name__)
@@ -117,9 +118,17 @@ async def chat(
         history = result.scalars().all()
 
     api_messages = []
+    greeting = opening_greeting(character)
     if character:
-        system_prompt = f"Ты — {character.name}. {character.personality or ''}"
-        api_messages.append({"role": "system", "content": system_prompt})
+        api_messages.append({
+            "role": "system",
+            "content": build_system_prompt(character),
+        })
+
+    # Приветствия ещё нет в истории: новый диалог или история без реплик.
+    # Уже сохранённое приветствие приезжает вместе с history.
+    if greeting and not history:
+        api_messages.append({"role": "assistant", "content": greeting})
 
     for m in history:
         api_messages.append({"role": m.role, "content": m.content})
@@ -148,6 +157,12 @@ async def chat(
         )
 
     conversation_id = conversation.id
+    if greeting and not history:
+        db.add(Message(
+            conversation_id=conversation_id,
+            role="assistant",
+            content=greeting,
+        ))
     db.add(Message(
         conversation_id=conversation_id,
         role="user",

@@ -160,36 +160,29 @@ function App() {
     } catch (error) { alert("Ошибка удаления"); }
   };
 
-const clearHistory = async () => {
-  if (!conversationId) return;
-  if (!window.confirm("Очистить историю этого диалога? Лимит сообщений сбросится.")) return;
+  const clearHistory = async () => {
+    if (!conversationId) return;
+    if (!window.confirm("Очистить историю этого диалога? Лимит сообщений сбросится.")) return;
 
-  try {
-    const res = await apiFetch(`/conversations/${conversationId}/messages`, {
-      method: "DELETE",
-    });
-    if (res.ok) {
-      // Находим персонажа текущего диалога
-      const conv = conversations.find(c => c.id === conversationId);
-      let firstMessage = null;
-
-      if (conv?.character_id) {
-        const char = characters.find(c => c.id === conv.character_id);
-        if (char?.first_message) {
-          firstMessage = char.first_message;
-        }
+    try {
+      const res = await apiFetch(`/conversations/${conversationId}/messages`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        alert("Не удалось очистить историю");
+        return;
       }
-
-      if (firstMessage) {
-        setMessages([{ role: "assistant", content: firstMessage }]);
+      const msgRes = await apiFetch(`/conversations/${conversationId}/messages`);
+      if (msgRes.ok) {
+        setMessages(await msgRes.json());
       } else {
         setMessages([]);
       }
+    } catch (e) {
+      alert("Не удалось очистить историю");
     }
-  } catch (e) {
-    alert("Не удалось очистить историю");
-  }
-};
+  };
+
   const handleCreateCharacter = async (e) => {
     e.preventDefault();
     try {
