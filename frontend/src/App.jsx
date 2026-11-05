@@ -21,6 +21,9 @@ function App() {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editFormData, setEditFormData] = useState({});
 
+  const [editingConvId, setEditingConvId] = useState(null);
+  const [renameDraft, setRenameDraft] = useState("");
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: "", description: "", personality: "", scenario: "", first_message: ""
@@ -78,6 +81,7 @@ function App() {
       setSelectedCharId(null);
       setViewingChar(null);
       setIsEditingProfile(false);
+      setEditingConvId(null);
     } catch (e) { console.error(e); }
   };
 
@@ -129,6 +133,50 @@ function App() {
       }
     } catch (error) {
       alert("Ошибка при обновлении персонажа");
+    }
+  };
+
+  const startRename = (conv) => {
+    setEditingConvId(conv.id);
+    setRenameDraft(conv.title);
+  };
+
+  const saveRename = async (id) => {
+    const title = renameDraft.trim();
+    if (!title) {
+      alert("Название не может быть пустым");
+      return;
+    }
+    try {
+      const res = await apiFetch(`/conversations/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ title }),
+      });
+      if (!res.ok) {
+        alert("Не удалось переименовать диалог");
+        return;
+      }
+      const updated = await res.json();
+      setConversations((prev) => prev.map((item) => (item.id === id ? updated : item)));
+      setEditingConvId(null);
+    } catch {
+      alert("Не удалось переименовать диалог");
+    }
+  };
+
+  const togglePin = async (conv) => {
+    try {
+      const res = await apiFetch(`/conversations/${conv.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ is_pinned: !conv.is_pinned }),
+      });
+      if (!res.ok) {
+        alert("Не удалось изменить закрепление");
+        return;
+      }
+      await fetchConversations();
+    } catch {
+      alert("Не удалось изменить закрепление");
     }
   };
 
@@ -350,11 +398,54 @@ function App() {
           {conversations.map((conv) => (
             <div
               key={conv.id}
-              className={`conv-item ${conversationId === conv.id ? "active" : ""}`}
+              className={`conv-item ${conversationId === conv.id ? "active" : ""} ${conv.is_pinned ? "pinned" : ""}`}
               onClick={() => loadMessages(conv.id)}
             >
-              <span>{conv.title}</span>
-              <button className="delete-btn" onClick={(e) => deleteChat(e, conv.id)}>×</button>
+              {editingConvId === conv.id ? (
+                <input
+                  className="conv-rename-input"
+                  value={renameDraft}
+                  aria-label="Новое название"
+                  maxLength={255}
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={(e) => setRenameDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      saveRename(conv.id);
+                    }
+                    if (e.key === "Escape") {
+                      e.preventDefault();
+                      setEditingConvId(null);
+                    }
+                  }}
+                  autoFocus
+                />
+              ) : (
+                <span className="conv-title">{conv.is_pinned ? "★ " : ""}{conv.title}</span>
+              )}
+              <div className="conv-actions" onClick={(e) => e.stopPropagation()}>
+                {editingConvId === conv.id ? (
+                  <>
+                    <button type="button" className="conv-action" onClick={() => saveRename(conv.id)}>
+                      Сохранить
+                    </button>
+                    <button type="button" className="conv-action" onClick={() => setEditingConvId(null)}>
+                      Отмена
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button type="button" className="conv-action" onClick={() => startRename(conv)}>
+                      Переименовать
+                    </button>
+                    <button type="button" className="conv-action" onClick={() => togglePin(conv)}>
+                      {conv.is_pinned ? "Открепить" : "Закрепить"}
+                    </button>
+                  </>
+                )}
+                <button className="delete-btn" onClick={(e) => deleteChat(e, conv.id)}>×</button>
+              </div>
             </div>
           ))}
         </div>
@@ -387,7 +478,17 @@ function App() {
           </form>
         )}
 
-        {!viewingChar && (
+        {!viewingChar && !conversationId && !selectedCharId && (
+          <div className="chat-empty" role="status">
+            <h2>Персонаж не выбран</h2>
+            <p>
+              Выберите персонажа слева и нажмите «Начать чат».
+              Пока персонаж не выбран, отправить сообщение нельзя.
+            </p>
+          </div>
+        )}
+
+        {!viewingChar && (conversationId || selectedCharId) && (
           <div className="chat-area">
             <div className="messages">
               {messages.map((msg, i) => (

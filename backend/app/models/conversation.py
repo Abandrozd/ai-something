@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
+from sqlalchemy import Boolean, Column, Integer, String, DateTime, ForeignKey, false
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -11,6 +11,7 @@ class Conversation(Base):
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     character_id = Column(Integer, ForeignKey('characters.id'), nullable=False)
     title = Column(String, nullable=False, default="New chat")
+    is_pinned = Column(Boolean, nullable=False, default=False, server_default=false())
     created_at = Column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
         )
