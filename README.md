@@ -7,13 +7,62 @@
 
 ## Требования
 
+Для обычного запуска:
+
+- Docker с плагином Compose
+
+Для запуска без Docker:
+
 - Python 3.10+
 - PostgreSQL
 - Node.js (LTS)
 
 ## Установка и запуск
 
-### 1. База данных
+### Docker Compose
+
+Из корня репозитория скопируйте пример окружения:
+
+```bash
+cp .env.example .env
+```
+
+`.env` в git не попадает. Задайте в нём свои `API_KEY`, `SECRET_KEY` и `ADMIN_PASSWORD`. Процесс не запускается, если `SECRET_KEY` или `ADMIN_PASSWORD` оставлены строками из `.env.example`, и если логин и пароль — пара `admin` / `admin`.
+
+Имя базы, пользователь и пароль Postgres читаются из `POSTGRES_DB`, `POSTGRES_USER` и `POSTGRES_PASSWORD`. Если переменных нет, Compose подставляет локальные значения `ai_chat`, `ai_chat` и `ai_chat_local`. `DATABASE_URL` должен указывать на сервис `postgres` и те же учётные данные (образец в `.env.example`). В контейнер бэкенда также передаются `DATABASE_URL`, `SECRET_KEY`, `ADMIN_PASSWORD`, `API_KEY` и `FRONTEND_ORIGIN`.
+
+```bash
+docker compose up --build
+```
+
+Уже собранные образы поднимаются той же командой без `--build`.
+
+- `postgres` — PostgreSQL 16. Данные лежат в именованном томе `postgres_data` и сохраняются после перезапуска.
+- `backend` — ждёт, пока Postgres принимает соединения, выполняет `alembic upgrade head`, затем запускает API. Схему создают только миграции Alembic.
+- `frontend` — dev-сервер Vite. Браузер на хосте открывает страницу, а запросы `/api` Vite проксирует на `backend` внутри сети Compose. Сессия остаётся httpOnly cookie на том же сайте, что и страница.
+
+Фронтенд: http://localhost:5173  
+Бэкенд: http://127.0.0.1:8000
+
+`FRONTEND_ORIGIN` по умолчанию `http://localhost:5173` — этот адрес и нужно открывать в браузере. API принимает cookie-запросы только с этого origin.
+
+Остановить стек, не удаляя данные:
+
+```bash
+docker compose down
+```
+
+Сбросить базу (том `postgres_data` удаляется):
+
+```bash
+docker compose down -v
+```
+
+`/docs`, `/redoc` и `/openapi.json` выключены, пока в `.env` не задано `ENABLE_API_DOCS=true`.
+
+### Без Docker
+
+#### 1. База данных
 
 Создайте базу в PostgreSQL:
 
@@ -21,13 +70,13 @@
 CREATE DATABASE ai_chat;
 ```
 
-### 2. Бэкенд
+#### 2. Бэкенд
 
 ```bash
 cd backend
 ```
 
-Создайте файл `.env`:
+Создайте `backend/.env`. Compose читает отдельный `.env` в корне репозитория, и в нём хост базы — `postgres`:
 
 ```env
 API_KEY=sk-ваш-ключ-openai
@@ -56,7 +105,7 @@ uvicorn app.main:app --reload
 
 `/docs`, `/redoc` и `/openapi.json` выключены, пока в `backend/.env` не задано `ENABLE_API_DOCS=true`. Без этого флага схема API не отдаётся.
 
-### 3. Фронтенд
+#### 3. Фронтенд
 
 В новом терминале:
 
@@ -82,17 +131,22 @@ npm run dev
 ## Структура проекта
 
 ```
+docker-compose.yml    # Postgres, backend, frontend
+.env.example          # образец .env для Compose (сам .env не коммитится)
 backend/
+├── Dockerfile
 ├── app/
 │   ├── models/       # SQLAlchemy модели
 │   ├── schemas/      # Pydantic схемы
 │   ├── routers/      # Эндпоинты
+│   ├── migrations/   # Миграции Alembic
 │   ├── security.py   # JWT и хеширование паролей
 │   └── main.py
-├── alembic/          # Миграции базы данных
+├── alembic.ini
 └── requirements.txt
 
 frontend/
+├── Dockerfile
 ├── src/
 │   ├── pages/        # Login, Register, Profile
 │   ├── App.jsx       # Интерфейс чата

@@ -6,8 +6,9 @@ from pydantic import ValidationError
 from app.config import Settings
 
 
-def _example_value(name: str) -> str:
-    path = Path(__file__).resolve().parents[2] / ".env.example"
+def _example_value(name: str, path: Path | None = None) -> str:
+    if path is None:
+        path = Path(__file__).resolve().parents[2] / ".env.example"
     for raw in path.read_text(encoding="utf-8").splitlines():
         line = raw.strip()
         if not line or line.startswith("#") or "=" not in line:
@@ -94,3 +95,31 @@ def test_startup_rejects_published_example_secrets_only():
     assert settings.ADMIN_USERNAME == "admin"
     assert settings.SECRET_KEY != example_secret
     assert settings.ADMIN_PASSWORD != example_password
+
+
+def test_compose_example_reuses_refused_secret_placeholders():
+    backend_example = Path(__file__).resolve().parents[2] / ".env.example"
+    root_example = Path(__file__).resolve().parents[3] / ".env.example"
+    secret = _example_value("SECRET_KEY", backend_example)
+    password = _example_value("ADMIN_PASSWORD", backend_example)
+
+    assert _example_value("SECRET_KEY", root_example) == secret
+    assert _example_value("ADMIN_PASSWORD", root_example) == password
+
+    database_url = _example_value("DATABASE_URL", root_example)
+    db_user = _example_value("POSTGRES_USER", root_example)
+    db_password = _example_value("POSTGRES_PASSWORD", root_example)
+    db_name = _example_value("POSTGRES_DB", root_example)
+    assert "@postgres:5432/" in database_url
+    assert db_user in database_url
+    assert db_password in database_url
+    assert database_url.endswith(f"/{db_name}")
+    assert db_password not in {secret, password}
+    assert _example_value("FRONTEND_ORIGIN", root_example) == "http://localhost:5173"
+
+
+def test_app_does_not_create_schema_with_create_all():
+    database = Path(__file__).resolve().parents[2] / "app" / "database.py"
+    source = database.read_text(encoding="utf-8")
+    assert "create_all" not in source
+    assert "init_db" not in source
