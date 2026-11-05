@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiFetch, logout } from "../api";
+import { passwordLengthMessage, passwordTooLong, readErrorDetail } from "../limits";
 import "./css/Profile.css";
 
 export default function Profile() {
@@ -31,6 +32,11 @@ export default function Profile() {
     e.preventDefault();
     setPasswordMessage("");
 
+    if (passwordTooLong(oldPassword) || passwordTooLong(newPassword)) {
+      setPasswordMessage(passwordLengthMessage());
+      return;
+    }
+
     try {
       const res = await apiFetch("/users/change-password", {
         method: "POST",
@@ -45,8 +51,8 @@ export default function Profile() {
         setOldPassword("");
         setNewPassword("");
       } else {
-        const data = await res.json();
-        setPasswordMessage(data.detail || "Ошибка при смене пароля");
+        const data = await res.json().catch(() => null);
+        setPasswordMessage(readErrorDetail(data, "Ошибка при смене пароля"));
       }
     } catch (e) {
       setPasswordMessage("Ошибка сети");

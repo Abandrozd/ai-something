@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { API_URL, clearStoredTokens } from "../api";
+import { passwordLengthMessage, passwordTooLong, readErrorDetail } from "../limits";
 import "./css/Login.css";
 
 export default function Login() {
@@ -13,6 +14,11 @@ export default function Login() {
     e.preventDefault();
     setError("");
 
+    if (passwordTooLong(password)) {
+      setError(passwordLengthMessage());
+      return;
+    }
+
     const formData = new FormData();
     formData.append("username", username);
     formData.append("password", password);
@@ -23,6 +29,14 @@ export default function Login() {
         credentials: "include",
         body: formData,
       });
+
+      if (res.status === 429 || res.status === 422) {
+        const data = await res.json().catch(() => null);
+        const fallback = res.status === 429
+          ? "Слишком много попыток. Повторите позже."
+          : passwordLengthMessage();
+        throw new Error(readErrorDetail(data, fallback));
+      }
 
       if (!res.ok) throw new Error("Неверный логин или пароль");
 

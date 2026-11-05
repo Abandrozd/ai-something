@@ -7,6 +7,11 @@ from app.logger import get_logger
 from app.cookies import REFRESH_COOKIE, clear_auth_cookies, set_auth_cookies
 from app.dependencies import get_db
 from app.models.user import User
+from app.request_limits import (
+    enforce_login_limit,
+    enforce_refresh_limit,
+    reject_long_password,
+)
 from app.security import (
     verify_password,
     create_access_token,
@@ -101,6 +106,8 @@ async def login(
     db: AsyncSession = Depends(get_db),
 ):
     """Логин. Кладёт access и refresh в httpOnly cookie, без тела с токенами."""
+    enforce_login_limit(request, form_data.username)
+    reject_long_password(form_data.password)
     logger.info("Попытка входа: %s", form_data.username)
     result = await db.execute(
         select(User).where(User.username == form_data.username, User.is_active == True)
@@ -127,6 +134,7 @@ async def refresh_token(
     data: RefreshRequest | None = None,
 ):
     """Обновляет пару и отзывает предыдущий refresh."""
+    enforce_refresh_limit(request)
     try:
         user = await _user_from_refresh(_presented_refresh_token(request, data), db)
         await _rotate_session(user, db)

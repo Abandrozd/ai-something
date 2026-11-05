@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
 import './App.css';
 import { apiFetch } from './api';
+import { messageLengthMessage, messageTooLong, readErrorDetail } from './limits';
 
 function App() {
   const [characters, setCharacters] = useState([]);
@@ -207,6 +208,11 @@ function App() {
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
 
+    if (messageTooLong(input)) {
+      alert(messageLengthMessage());
+      return;
+    }
+
     if (!conversationId && !selectedCharId) {
       alert("Выберите персонажа, чтобы начать диалог");
       return;
@@ -254,9 +260,7 @@ function App() {
         let detail = "Ошибка при отправке сообщения";
         try {
           const errBody = await res.json();
-          if (typeof errBody.detail === "string") {
-            detail = errBody.detail;
-          }
+          detail = readErrorDetail(errBody, detail);
         } catch (e) {
           // ответ без JSON
         }

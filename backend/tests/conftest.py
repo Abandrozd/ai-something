@@ -22,6 +22,7 @@ from sqlalchemy.orm import sessionmaker
 from app.main import app
 from app.database import Base
 from app.dependencies import get_db
+from app.request_limits import limiter
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
 
@@ -66,6 +67,13 @@ class _Choice:
 class _Chunk:
     def __init__(self, content):
         self.choices = [_Choice(content)]
+
+
+@pytest.fixture(autouse=True)
+def reset_request_limits():
+    limiter.reset()
+    yield
+    limiter.reset()
 
 
 @pytest.fixture(autouse=True)
