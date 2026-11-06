@@ -100,6 +100,10 @@
   font-size: 14px;
 }
 
+.profile-admin-link {
+  margin-top: 10px;
+}
+
 .profile-error {
   color: #ff6b6b;
   text-align: center;

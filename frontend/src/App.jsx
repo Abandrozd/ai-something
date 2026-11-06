@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
 import './App.css';
 import { apiFetch } from './api';
+import { messageLengthMessage, messageTooLong, readErrorDetail } from './limits';
 
 function App() {
   const [characters, setCharacters] = useState([]);
@@ -19,6 +20,9 @@ function App() {
 
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editFormData, setEditFormData] = useState({});
+
+  const [editingConvId, setEditingConvId] = useState(null);
+  const [renameDraft, setRenameDraft] = useState("");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -54,7 +58,7 @@ function App() {
 
   const fetchCharacters = async () => {
     try {
-      const res = await apiFetch("/characters");
+      const res = await apiFetch("/characters/");
       const data = await res.json();
       setCharacters(data);
     } catch (e) { console.error(e); }
@@ -62,7 +66,7 @@ function App() {
 
   const fetchConversations = async () => {
     try {
-      const res = await apiFetch("/conversations");
+      const res = await apiFetch("/conversations/");
       const data = await res.json();
       setConversations(data);
     } catch (e) { console.error(e); }
@@ -77,6 +81,7 @@ function App() {
       setSelectedCharId(null);
       setViewingChar(null);
       setIsEditingProfile(false);
+      setEditingConvId(null);
     } catch (e) { console.error(e); }
   };
 
@@ -131,6 +136,50 @@ function App() {
     }
   };
 
+  const startRename = (conv) => {
+    setEditingConvId(conv.id);
+    setRenameDraft(conv.title);
+  };
+
+  const saveRename = async (id) => {
+    const title = renameDraft.trim();
+    if (!title) {
+      alert("Название не может быть пустым");
+      return;
+    }
+    try {
+      const res = await apiFetch(`/conversations/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ title }),
+      });
+      if (!res.ok) {
+        alert("Не удалось переименовать диалог");
+        return;
+      }
+      const updated = await res.json();
+      setConversations((prev) => prev.map((item) => (item.id === id ? updated : item)));
+      setEditingConvId(null);
+    } catch {
+      alert("Не удалось переименовать диалог");
+    }
+  };
+
+  const togglePin = async (conv) => {
+    try {
+      const res = await apiFetch(`/conversations/${conv.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ is_pinned: !conv.is_pinned }),
+      });
+      if (!res.ok) {
+        alert("Не удалось изменить закрепление");
+        return;
+      }
+      await fetchConversations();
+    } catch {
+      alert("Не удалось изменить закрепление");
+    }
+  };
+
   const deleteChat = async (e, id) => {
     e.stopPropagation();
     if (!window.confirm("Удалить этот чат?")) return;
@@ -160,40 +209,33 @@ function App() {
     } catch (error) { alert("Ошибка удаления"); }
   };
 
-const clearHistory = async () => {
-  if (!conversationId) return;
-  if (!window.confirm("Очистить историю этого диалога? Лимит сообщений сбросится.")) return;
+  const clearHistory = async () => {
+    if (!conversationId) return;
+    if (!window.confirm("Очистить историю этого диалога? Лимит сообщений сбросится.")) return;
 
-  try {
-    const res = await apiFetch(`/conversations/${conversationId}/messages`, {
-      method: "DELETE",
-    });
-    if (res.ok) {
-      // Находим персонажа текущего диалога
-      const conv = conversations.find(c => c.id === conversationId);
-      let firstMessage = null;
-
-      if (conv?.character_id) {
-        const char = characters.find(c => c.id === conv.character_id);
-        if (char?.first_message) {
-          firstMessage = char.first_message;
-        }
+    try {
+      const res = await apiFetch(`/conversations/${conversationId}/messages`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        alert("Не удалось очистить историю");
+        return;
       }
-
-      if (firstMessage) {
-        setMessages([{ role: "assistant", content: firstMessage }]);
+      const msgRes = await apiFetch(`/conversations/${conversationId}/messages`);
+      if (msgRes.ok) {
+        setMessages(await msgRes.json());
       } else {
         setMessages([]);
       }
+    } catch (e) {
+      alert("Не удалось очистить историю");
     }
-  } catch (e) {
-    alert("Не удалось очистить историю");
-  }
-};
+  };
+
   const handleCreateCharacter = async (e) => {
     e.preventDefault();
     try {
-      const res = await apiFetch("/characters", {
+      const res = await apiFetch("/characters/", {
         method: 'POST',
         body: JSON.stringify(formData)
       });
@@ -214,15 +256,26 @@ const clearHistory = async () => {
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
 
+    if (messageTooLong(input)) {
+      alert(messageLengthMessage());
+      return;
+    }
+
+    if (!conversationId && !selectedCharId) {
+      alert("Выберите персонажа, чтобы начать диалог");
+      return;
+    }
+
     const userMessage = { role: "user", content: input };
     setMessages((prev) => [...prev, userMessage, { role: "assistant", content: "" }]);
 
     setInput("");
     if (inputRef.current) {
-      inputRef.current.style.height = 'auto';
+      inputRef.current.style.height = "auto";
     }
 
     setIsLoading(true);
+    let pendingTurn = true;
 
     try {
       const payload = {
@@ -230,59 +283,73 @@ const clearHistory = async () => {
         conversation_id: conversationId,
         character_id: selectedCharId
       };
-const res = await apiFetch("/chat", {
-  method: 'POST',
-  body: JSON.stringify(payload)
-});
-
-if (!res.ok) {
-  if (res.status === 429) {
-    setMessages((prev) => {
-      const newMessages = [...prev];
-      const lastIndex = newMessages.length - 1;
-      newMessages[lastIndex] = {
-        role: "assistant",
-        content: "Достигнут лимит сообщений в данном тарифном плане. Повысьте план в личном кабинете."
-      };
-      return newMessages;
-    });
-    return;
-  }
-  throw new Error("Ошибка сервера");
-    }
-
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder("utf-8");
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      const textChunk = decoder.decode(value, { stream: true });
-      setMessages((prev) => {
-        const newMessages = [...prev];
-        const lastIndex = newMessages.length - 1;
-        newMessages[lastIndex] = {
-          ...newMessages[lastIndex],
-          content: newMessages[lastIndex].content + textChunk
-        };
-        return newMessages;
+      const res = await apiFetch("/chat/", {
+        method: "POST",
+        body: JSON.stringify(payload)
       });
-    }
 
-    if (!conversationId) {
-      const convsRes = await apiFetch("/conversations");
-      if (convsRes.ok) {
-        const convs = await convsRes.json();
-        if (convs.length > 0) {
-          // Берём самый новый диалог
-          const newest = convs[0];
-          setConversationId(newest.id);
-          setConversations(convs);
+      if (!res.ok) {
+        if (res.status === 429) {
+          pendingTurn = false;
+          setMessages((prev) => {
+            const newMessages = [...prev];
+            const lastIndex = newMessages.length - 1;
+            newMessages[lastIndex] = {
+              role: "assistant",
+              content: "Достигнут лимит сообщений в данном тарифном плане. Повысьте план в личном кабинете."
+            };
+            return newMessages;
+          });
+          return;
         }
+        pendingTurn = false;
+        setMessages((prev) => prev.slice(0, -2));
+        setInput(userMessage.content);
+        let detail = "Ошибка при отправке сообщения";
+        try {
+          const errBody = await res.json();
+          detail = readErrorDetail(errBody, detail);
+        } catch (e) {
+          // ответ без JSON
+        }
+        alert(detail);
+        return;
       }
-    }
+
+      const headerId = res.headers.get("X-Conversation-Id");
+      const resolvedId = headerId ? Number(headerId) : null;
+      if (resolvedId) {
+        setConversationId(resolvedId);
+      }
+      pendingTurn = false;
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const textChunk = decoder.decode(value, { stream: true });
+        setMessages((prev) => {
+          const newMessages = [...prev];
+          const lastIndex = newMessages.length - 1;
+          newMessages[lastIndex] = {
+            ...newMessages[lastIndex],
+            content: newMessages[lastIndex].content + textChunk
+          };
+          return newMessages;
+        });
+      }
+
+      if (!conversationId) {
+        fetchConversations();
+      }
     } catch (error) {
       console.error(error);
+      if (pendingTurn) {
+        setMessages((prev) => prev.slice(0, -2));
+        setInput(userMessage.content);
+      }
       alert("Ошибка при отправке сообщения");
     } finally {
       setIsLoading(false);
@@ -301,7 +368,7 @@ if (!res.ok) {
   return (
     <div className="app">
       <div className="sidebar">
-        <div style={{ padding: "10px 16px" }}>
+        <div className="sidebar-profile">
           <a href="/profile" className="profile-link">Профиль</a>
         </div>
 
@@ -331,11 +398,54 @@ if (!res.ok) {
           {conversations.map((conv) => (
             <div
               key={conv.id}
-              className={`conv-item ${conversationId === conv.id ? "active" : ""}`}
+              className={`conv-item ${conversationId === conv.id ? "active" : ""} ${conv.is_pinned ? "pinned" : ""}`}
               onClick={() => loadMessages(conv.id)}
             >
-              <span>{conv.title}</span>
-              <button className="delete-btn" onClick={(e) => deleteChat(e, conv.id)}>×</button>
+              {editingConvId === conv.id ? (
+                <input
+                  className="conv-rename-input"
+                  value={renameDraft}
+                  aria-label="Новое название"
+                  maxLength={255}
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={(e) => setRenameDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      saveRename(conv.id);
+                    }
+                    if (e.key === "Escape") {
+                      e.preventDefault();
+                      setEditingConvId(null);
+                    }
+                  }}
+                  autoFocus
+                />
+              ) : (
+                <span className="conv-title">{conv.is_pinned ? "★ " : ""}{conv.title}</span>
+              )}
+              <div className="conv-actions" onClick={(e) => e.stopPropagation()}>
+                {editingConvId === conv.id ? (
+                  <>
+                    <button type="button" className="conv-action" onClick={() => saveRename(conv.id)}>
+                      Сохранить
+                    </button>
+                    <button type="button" className="conv-action" onClick={() => setEditingConvId(null)}>
+                      Отмена
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button type="button" className="conv-action" onClick={() => startRename(conv)}>
+                      Переименовать
+                    </button>
+                    <button type="button" className="conv-action" onClick={() => togglePin(conv)}>
+                      {conv.is_pinned ? "Открепить" : "Закрепить"}
+                    </button>
+                  </>
+                )}
+                <button className="delete-btn" onClick={(e) => deleteChat(e, conv.id)}>×</button>
+              </div>
             </div>
           ))}
         </div>
@@ -368,7 +478,17 @@ if (!res.ok) {
           </form>
         )}
 
-        {!viewingChar && (
+        {!viewingChar && !conversationId && !selectedCharId && (
+          <div className="chat-empty" role="status">
+            <h2>Персонаж не выбран</h2>
+            <p>
+              Выберите персонажа слева и нажмите «Начать чат».
+              Пока персонаж не выбран, отправить сообщение нельзя.
+            </p>
+          </div>
+        )}
+
+        {!viewingChar && (conversationId || selectedCharId) && (
           <div className="chat-area">
             <div className="messages">
               {messages.map((msg, i) => (

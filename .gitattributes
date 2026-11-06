@@ -1,0 +1,6 @@
+# Keep shell scripts and Dockerfiles LF in the repo and on checkout,
+# including on Windows. A CRLF shebang makes Linux look for /bin/sh\r
+# and the container fails with "exec ./docker-entrypoint.sh: no such file or directory".
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.Dockerfile text eol=lf

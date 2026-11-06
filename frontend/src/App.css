@@ -53,6 +53,57 @@ body {
   font-size: 15px;
 }
 
+.conv-item {
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.conv-title {
+  flex: 1 0 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conv-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 2px;
+  width: 100%;
+}
+
+.conv-action {
+  background: transparent;
+  border: none;
+  color: #c8c8c8;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 4px;
+}
+
+.conv-action:hover {
+  color: #ffffff;
+}
+
+.conv-item.pinned {
+  background-color: #2c2a24;
+}
+
+.conv-rename-input {
+  flex: 1 0 100%;
+  min-width: 0;
+  padding: 4px 6px;
+  border-radius: 4px;
+  border: 1px solid #10a37f;
+  background: #1a1a1a;
+  color: white;
+  font: inherit;
+}
+
 .char-item:hover,
 .conv-item:hover {
   background-color: #333;
@@ -107,6 +158,30 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 0;
+}
+
+.chat-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 48px 24px;
+  gap: 12px;
+}
+
+.chat-empty h2 {
+  font-size: 22px;
+  font-weight: 600;
+  color: #f5f5f5;
+}
+
+.chat-empty p {
+  max-width: 440px;
+  color: #9a9a9a;
+  line-height: 1.5;
+  font-size: 15px;
 }
 
 .messages {
@@ -294,6 +369,10 @@ body {
 .modal button[type="submit"] {
   background-color: #10a37f;
   color: white;
+}
+
+.sidebar-profile {
+  padding: 10px 16px;
 }
 
 .profile-link {

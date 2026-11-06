@@ -28,6 +28,9 @@ class User(Base):
         )
     is_active = Column(Boolean, default=True)
     is_admin = Column(Boolean, default=False)
+    # Session generation. Logout, password change, and refresh rotation
+    # increment it. Access and refresh tokens must carry the same value.
+    token_version = Column(Integer, nullable=False, default=0, server_default="0")
     balance = Column(Numeric(10, 2), default=0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

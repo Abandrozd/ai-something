@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { apiFetch, clearTokens } from "../api";
+import { apiFetch, logout } from "../api";
+import { passwordLengthMessage, passwordTooLong, readErrorDetail } from "../limits";
 import "./css/Profile.css";
 
 export default function Profile() {
@@ -19,10 +20,7 @@ export default function Profile() {
   }, []);
 
   const handleLogout = async () => {
-    try {
-      await apiFetch("/auth/logout", { method: "POST" });
-    } catch (e) {}
-    clearTokens();
+    await logout();
     navigate("/login");
   };
 
@@ -33,6 +31,11 @@ export default function Profile() {
   const handleChangePassword = async (e) => {
     e.preventDefault();
     setPasswordMessage("");
+
+    if (passwordTooLong(oldPassword) || passwordTooLong(newPassword)) {
+      setPasswordMessage(passwordLengthMessage());
+      return;
+    }
 
     try {
       const res = await apiFetch("/users/change-password", {
@@ -48,8 +51,8 @@ export default function Profile() {
         setOldPassword("");
         setNewPassword("");
       } else {
-        const data = await res.json();
-        setPasswordMessage(data.detail || "Ошибка при смене пароля");
+        const data = await res.json().catch(() => null);
+        setPasswordMessage(readErrorDetail(data, "Ошибка при смене пароля"));
       }
     } catch (e) {
       setPasswordMessage("Ошибка сети");
@@ -122,7 +125,7 @@ export default function Profile() {
         </button>
 
         {user.role === "admin" && (
-          <a href="/admin" className="profile-back" style={{ display: "block", marginTop: "10px" }}>
+          <a href="/admin" className="profile-back profile-admin-link">
             Админ-панель
           </a>
         )}

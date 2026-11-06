@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { API_URL } from "../api";
+import { passwordLengthMessage, passwordTooLong, readErrorDetail } from "../limits";
 import "./css/Register.css";
 
 export default function Register() {
@@ -13,21 +15,26 @@ export default function Register() {
     e.preventDefault();
     setError("");
 
+    if (passwordTooLong(password)) {
+      setError(passwordLengthMessage());
+      return;
+    }
+
     try {
-      const res = await fetch("http://127.0.0.1:8000/users/", {
+      const res = await fetch(`${API_URL}/users/`, {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           username,
           email,
           password,
-          role: "guest",
         }),
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.detail || "Ошибка регистрации");
+        const data = await res.json().catch(() => null);
+        throw new Error(readErrorDetail(data, "Ошибка регистрации"));
       }
 
       navigate("/login");

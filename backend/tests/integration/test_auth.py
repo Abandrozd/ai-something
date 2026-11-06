@@ -28,5 +28,6 @@ async def test_login_success(client):
         "password": "password123",
     })
     assert response.status_code == 200
-    data = response.json()
-    assert "access_token" in data
+    assert response.json() == {"token_type": "bearer"}
+    assert response.cookies["access_token"]
+    assert response.cookies["refresh_token"]

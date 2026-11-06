@@ -1,0 +1,65 @@
+# Local stack. Copy .env.example to .env and set API_KEY, SECRET_KEY, and
+# ADMIN_PASSWORD. The API refuses the placeholder SECRET_KEY and ADMIN_PASSWORD.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ai_chat}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ai_chat_local}
+      POSTGRES_DB: ${POSTGRES_DB:-ai_chat}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+
+  backend:
+    build:
+      context: ./backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://ai_chat:ai_chat_local@postgres:5432/ai_chat}
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env}
+      API_KEY: ${API_KEY:?Set API_KEY in .env}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:5173}
+      MODEL: ${MODEL:-gpt-4o-mini}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
+      ENABLE_API_DOCS: ${ENABLE_API_DOCS:-false}
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/')",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  frontend:
+    build:
+      context: ./frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      # Vite reads this in vite.config.js and proxies browser /api calls
+      # to the backend on the Compose network.
+      VITE_API_PROXY: http://backend:8000
+    ports:
+      - "5173:5173"
+
+volumes:
+  postgres_data:

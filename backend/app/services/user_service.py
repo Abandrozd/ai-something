@@ -2,7 +2,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from fastapi import HTTPException
 
-from app.models.user import User
+from app.models.user import User, UserRole
+from app.request_limits import reject_long_password
 from app.schemas.user import UserCreate
 from app.security import hash_password
 from app.logger import get_logger
@@ -20,11 +21,12 @@ async def create_user(db: AsyncSession, user_data: UserCreate) -> User:
         logger.warning("Попытка регистрации существующего: %s", user_data.username)
         raise HTTPException(status_code=409, detail="Пользователь уже существует")
 
+    reject_long_password(user_data.password)
     db_user = User(
         username=user_data.username,
         email=user_data.email,
         hashed_password=hash_password(user_data.password),
-        role=user_data.role,
+        role=UserRole.GUEST,
     )
     db.add(db_user)
     await db.commit()
@@ -42,6 +44,9 @@ async def change_password(
 ) -> None:
     from app.security import verify_password
 
+    reject_long_password(old_password)
+    reject_long_password(new_password)
+
     if not verify_password(old_password, user.hashed_password):
         raise HTTPException(status_code=400, detail="Неверный текущий пароль")
 
@@ -49,5 +54,6 @@ async def change_password(
         raise HTTPException(status_code=400, detail="Пароль должен быть не короче 6 символов")
 
     user.hashed_password = hash_password(new_password)
+    user.token_version = int(user.token_version or 0) + 1
     await db.commit()
     logger.info("Пользователь %s сменил пароль", user.username)
